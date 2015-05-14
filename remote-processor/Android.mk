@@ -49,7 +49,8 @@ common_cflags := \
         -Werror \
         -Wextra \
         -Wno-unused-parameter \
-        -pthread
+        -pthread \
+        -Wno-error=unused-result \
 
 common_ldlibs := -pthread
 
