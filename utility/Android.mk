@@ -60,6 +60,10 @@ LOCAL_MODULE_TAGS := $(common_module_tags)
 
 LOCAL_CFLAGS := $(common_cflags)
 
+ifeq ($(INCLUDE_STLPORT), true)
+include external/stlport/libstlport.mk
+endif
+
 include $(BUILD_STATIC_LIBRARY)
 
 ##############################

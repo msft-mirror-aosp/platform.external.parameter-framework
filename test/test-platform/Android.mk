@@ -63,6 +63,10 @@ LOCAL_LDLIBS := $(common_ldlibs)
 LOCAL_STATIC_LIBRARIES := libpfw_utility
 LOCAL_SHARED_LIBRARIES := $(common_shared_libraries)
 
+ifeq ($(INCLUDE_STLPORT), true)
+include external/stlport/libstlport.mk
+endif
+
 include $(BUILD_EXECUTABLE)
 
 ##############################

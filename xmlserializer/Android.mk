@@ -79,6 +79,10 @@ LOCAL_STATIC_LIBRARIES := $(common_static_libraries)
 
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
 
+ifeq ($(INCLUDE_STLPORT), true)
+include external/stlport/libstlport.mk
+endif
+
 include $(BUILD_STATIC_LIBRARY)
 
 ##############################

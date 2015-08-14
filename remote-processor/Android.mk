@@ -67,6 +67,10 @@ LOCAL_MODULE := $(common_module)
 LOCAL_MODULE_OWNER := intel
 LOCAL_MODULE_TAGS := $(common_module_tags)
 
+ifeq ($(INCLUDE_STLPORT), true)
+include external/stlport/libstlport.mk
+endif
+
 include $(BUILD_SHARED_LIBRARY)
 
 ##############################
