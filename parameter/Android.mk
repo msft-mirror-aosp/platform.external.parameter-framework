@@ -160,6 +160,11 @@ LOCAL_STATIC_LIBRARIES := libxmlserializer libpfw_utility libxml2
 LOCAL_REQUIRED_MODULES := libremote-processor
 
 LOCAL_CLANG := false
+
+ifeq ($(INCLUDE_STLPORT), true)
+include external/stlport/libstlport.mk
+endif
+
 include $(BUILD_SHARED_LIBRARY)
 
 ##############################
