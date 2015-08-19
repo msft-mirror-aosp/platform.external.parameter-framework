@@ -158,6 +158,10 @@ LOCAL_STATIC_LIBRARIES := libpfw_utility
 
 LOCAL_REQUIRED_MODULES := libremote-processor
 
+ifeq ($(INCLUDE_STLPORT), true)
+include external/stlport/libstlport.mk
+endif
+
 include $(BUILD_SHARED_LIBRARY)
 
 ##############################
