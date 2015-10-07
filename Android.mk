@@ -13,6 +13,6 @@ endif
 
 # Recursive call sub-folder Android.mk
 #
-
-include $(call all-subdir-makefiles)
+# currently disabled due to python-related build issues
+#include $(call all-subdir-makefiles)
 
