@@ -13,6 +13,8 @@ endif
 
 # Recursive call sub-folder Android.mk
 #
+ifneq ($(USE_CUSTOM_PARAMETER_FRAMEWORK), true)
 ifeq ($(HOST_OS),linux)
 include $(call all-subdir-makefiles)
+endif
 endif
