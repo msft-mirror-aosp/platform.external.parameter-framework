@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, Intel Corporation
+ * Copyright (c) 2011-2015, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -34,6 +34,8 @@
 
 #include <map>
 #include <string>
+#include <memory>
+#include <utility>
 
 /** Factory that creates an element given an xml element. If no matching builder is found, it uses
   * the default builder.
@@ -41,23 +43,21 @@
   * @tparam CDefaultElementBuilder is the class of the element builder to use if no corresponding
   *                                builder is found for a given xml element.
   */
-template<class CDefaultElementBuilder>
-class CDefaultElementLibrary: public CElementLibrary
+template <class CDefaultElementBuilder>
+class CDefaultElementLibrary : public CElementLibrary
 {
 public:
+    virtual ~CDefaultElementLibrary() = default;
 
-    explicit CDefaultElementLibrary(bool bEnableDefaultMechanism = true);
-    virtual ~CDefaultElementLibrary() {}
-
-    /** Enable the default builder fallback mechanism.
+    /** Set the default builder used in fallback mechanism.
       * @see createElement() for more detail on this mechanism.
       *
-      * @param[in] bEnable if true/false, activate/deactivate the default builder mechanism.
+      * @param[in] defaultBuilder if NULL default builder mechanism, else provided builder is used.
       */
-    void enableDefaultMechanism(bool bEnable) {
-        _bEnableDefaultMechanism = bEnable;
+    void setDefaultBuilder(std::unique_ptr<CDefaultElementBuilder> defaultBuilder)
+    {
+        _defaultBuilder = std::move(defaultBuilder);
     }
-
 
     /** Create and return an element instanciated depending on an xmlElement.
       *
@@ -69,34 +69,28 @@ public:
       *                 create the elemen with the default element builder.
       *             otherwise, return NULL.
       */
-    CElement* createElement(const CXmlElement& xmlElement) const;
+    CElement *createElement(const CXmlElement &xmlElement) const;
 
 private:
-    bool _bEnableDefaultMechanism;
-    CDefaultElementBuilder _DefaultElementBuilder;
+    std::unique_ptr<CDefaultElementBuilder> _defaultBuilder;
 };
 
-template<class CDefaultElementBuilder>
-CDefaultElementLibrary<CDefaultElementBuilder>::CDefaultElementLibrary(bool bEnableDefaultMechanism) :
-        _bEnableDefaultMechanism(bEnableDefaultMechanism),
-        _DefaultElementBuilder() {}
-
-template<class CDefaultElementBuilder>
-CElement* CDefaultElementLibrary<CDefaultElementBuilder>::createElement(const CXmlElement& xmlElement) const
+template <class CDefaultElementBuilder>
+CElement *CDefaultElementLibrary<CDefaultElementBuilder>::createElement(
+    const CXmlElement &xmlElement) const
 {
-    CElement* builtElement = CElementLibrary::createElement(xmlElement);
+    CElement *builtElement = CElementLibrary::createElement(xmlElement);
 
     if (builtElement != NULL) {
         // The element was created, return it
         return builtElement;
     }
 
-    if (!_bEnableDefaultMechanism) {
+    if (_defaultBuilder == nullptr) {
         // The default builder mechanism is not enabled
         return NULL;
     }
 
     // Use the default builder
-    return _DefaultElementBuilder.createElement(xmlElement);
+    return _defaultBuilder->createElement(xmlElement);
 }
-

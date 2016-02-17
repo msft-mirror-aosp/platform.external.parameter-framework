@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (c) 2011-2014, Intel Corporation
  * All rights reserved.
  *
@@ -36,8 +36,8 @@ class IRemoteCommandHandler
 {
 public:
     // Return true on success, fill result in any cases
-    virtual bool remoteCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult) = 0;
+    virtual bool remoteCommandProcess(const IRemoteCommand &remoteCommand,
+                                      std::string &strResult) = 0;
 
-protected:
     virtual ~IRemoteCommandHandler() {}
 };

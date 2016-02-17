@@ -45,16 +45,13 @@ public:
       * @param[in] pXmlSource a pointer to a parameter-framework structure that can generate
       * an xml description of itself
       * @param[in] strRootElementType a string containing the root element type
-      * @param[in] strXmlSchemaFile a string containing the path to the schema file
       * @param[in] strProduct a string containing the product name
       * @param[in] strVersion a string containing the version number
       * @param[in] bValidateWithSchema a boolean that toggles schema validation
       */
-    CXmlMemoryDocSource(const IXmlSource* pXmlSource, bool bValidateWithSchema,
-                        const std::string& strRootElementType,
-                        const std::string& strXmlSchemaFile = "",
-                        const std::string& strProduct = "",
-                        const std::string& strVersion = "");
+    CXmlMemoryDocSource(const IXmlSource *pXmlSource, bool bValidateWithSchema,
+                        const std::string &strRootElementType, const std::string &strProduct = "",
+                        const std::string &strVersion = "");
 
     /**
       * Implementation of CXmlDocSource::populate() method.
@@ -64,9 +61,9 @@ public:
       *
       * @return false if any error occurs
       */
-    virtual bool populate(CXmlSerializingContext& serializingContext);
-private:
+    virtual bool populate(CXmlSerializingContext &serializingContext);
 
+private:
     /**
       * Initialize root element
       */
@@ -75,7 +72,7 @@ private:
     /**
       * Xml Source
       */
-    const IXmlSource* _pXmlSource;
+    const IXmlSource *_pXmlSource;
 
     /**
       * Schema file

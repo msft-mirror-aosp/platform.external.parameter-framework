@@ -28,15 +28,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "EnumValuePair.h"
-#include "Utility.h"
 
 #define base CElement
 
 using std::string;
-
-CEnumValuePair::CEnumValuePair() : _iNumerical(0)
-{
-}
 
 // CElement
 string CEnumValuePair::getKind() const
@@ -52,38 +47,43 @@ int32_t CEnumValuePair::getNumerical() const
 
 string CEnumValuePair::getNumericalAsString() const
 {
-    return CUtility::toString(_iNumerical);
+    return std::to_string(_iNumerical);
 }
 
 // From IXmlSink
-bool CEnumValuePair::fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& serializingContext)
+bool CEnumValuePair::fromXml(const CXmlElement &xmlElement,
+                             CXmlSerializingContext &serializingContext)
 {
     // Literal
-    setName(xmlElement.getAttributeString("Literal"));
+    std::string name;
+    xmlElement.getAttribute("Literal", name);
+    setName(name);
 
     // Numerical
-    _iNumerical = xmlElement.getAttributeSignedInteger("Numerical");
+    xmlElement.getAttribute("Numerical", _iNumerical);
 
     // Base
     return base::fromXml(xmlElement, serializingContext);
 }
 
 // Content dumping
-void CEnumValuePair::logValue(string& strValue, CErrorContext& errorContext) const
+string CEnumValuePair::logValue(utility::ErrorContext & /*ctx*/) const
 {
-    (void)errorContext;
     // Convert value
-    strValue = getNumericalAsString();
+    return getNumericalAsString();
 }
 
 // From IXmlSource
-void CEnumValuePair::toXml(CXmlElement& xmlElement, CXmlSerializingContext& serializingContext) const
+void CEnumValuePair::toXml(CXmlElement &xmlElement,
+                           CXmlSerializingContext &serializingContext) const
 {
     // Literal
-    xmlElement.setAttributeString("Literal", this->getName());
+    xmlElement.setAttribute("Literal", this->getName());
 
     // Numerical
-    xmlElement.setAttributeString("Numerical", getNumericalAsString());
+    xmlElement.setAttribute("Numerical", getNumericalAsString());
 
-    base::toXml(xmlElement, serializingContext);
+    // Ask for children processing only so as to avoid setting the Name attribute
+    // which does not exist for this element
+    base::childrenToXml(xmlElement, serializingContext);
 }

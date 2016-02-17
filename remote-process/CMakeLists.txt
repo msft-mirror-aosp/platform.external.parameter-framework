@@ -1,4 +1,4 @@
-# Copyright (c) 2014, Intel Corporation
+# Copyright (c) 2014-2016, Intel Corporation
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without modification,
@@ -26,14 +26,14 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-add_executable(remote-process main.cpp)
+if(NETWORKING)
+    add_executable(remote-process main.cpp)
 
-# TODO: separate remote-processor's includes in half (public/private)
-# And use only public headers here
-include_directories(
-    "${PROJECT_SOURCE_DIR}/remote-processor"
-    "${PROJECT_SOURCE_DIR}/utility")
+    set(CMAKE_THREAD_PREFER_PTHREAD 1)
+    find_package(Threads REQUIRED)
 
-target_link_libraries(remote-process remote-processor pfw_utility)
+    target_link_libraries(remote-process
+                          PRIVATE remote-processor pfw_utility asio ${CMAKE_THREAD_LIBS_INIT})
 
-install(TARGETS remote-process RUNTIME DESTINATION bin)
+    install(TARGETS remote-process RUNTIME DESTINATION bin)
+endif()

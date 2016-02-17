@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (c) 2011-2014, Intel Corporation
  * All rights reserved.
  *
@@ -29,13 +29,12 @@
  */
 #include "XmlElement.h"
 #include <libxml/tree.h>
+#include "convert.hpp"
 #include <stdlib.h>
-#include <sstream>
 
 using std::string;
-using std::ostringstream;
 
-CXmlElement::CXmlElement(_xmlNode* pXmlElement) : _pXmlElement(pXmlElement)
+CXmlElement::CXmlElement(_xmlNode *pXmlElement) : _pXmlElement(pXmlElement)
 {
 }
 
@@ -43,14 +42,14 @@ CXmlElement::CXmlElement() : _pXmlElement(NULL)
 {
 }
 
-void CXmlElement::setXmlElement(_xmlNode* pXmlElement)
+void CXmlElement::setXmlElement(_xmlNode *pXmlElement)
 {
     _pXmlElement = pXmlElement;
 }
 
 string CXmlElement::getType() const
 {
-    return (const char*)_pXmlElement->name;
+    return (const char *)_pXmlElement->name;
 }
 
 string CXmlElement::getPath() const
@@ -72,82 +71,71 @@ string CXmlElement::getPath() const
     return strPathElement;
 }
 
-string CXmlElement::getNameAttribute() const
+bool CXmlElement::hasAttribute(const string &strAttributeName) const
 {
-    return getAttributeString("Name");
+    return xmlHasProp(_pXmlElement, (const xmlChar *)strAttributeName.c_str()) != NULL;
 }
 
-bool CXmlElement::hasAttribute(const string& strAttributeName) const
+template <>
+bool CXmlElement::getAttribute<std::string>(const string &name, string &value) const
 {
-    return xmlHasProp(_pXmlElement, (const xmlChar*)strAttributeName.c_str()) != NULL;
-}
-
-string CXmlElement::getAttributeString(const string &strAttributeName) const
-{
-    if (!hasAttribute(strAttributeName)) {
-
-        return "";
+    if (!hasAttribute(name)) {
+        return false;
     }
-    xmlChar* pucXmlValue = xmlGetProp((xmlNode*)_pXmlElement, (const xmlChar*)strAttributeName.c_str());
+
+    string backup = value;
+    xmlChar *pucXmlValue = xmlGetProp((xmlNode *)_pXmlElement, (const xmlChar *)name.c_str());
     if (pucXmlValue == NULL) {
-        return "";
+        value = backup;
+        return false;
     }
 
-    string strValue((const char*)pucXmlValue);
+    value = (const char *)pucXmlValue;
 
     xmlFree(pucXmlValue);
 
-    return strValue;
+    return true;
 }
 
-bool CXmlElement::getAttributeBoolean(const string& strAttributeName, const string& strTrueValue) const
+template <typename T>
+bool CXmlElement::getAttribute(const std::string &name, T &value) const
 {
-    return getAttributeString(strAttributeName) == strTrueValue;
+    std::string rawValue;
+    if (!getAttribute(name, rawValue)) {
+        return false;
+    }
+
+    T backup = value;
+    if (!convertTo<T>(rawValue, value)) {
+        value = backup;
+        return false;
+    }
+
+    return true;
 }
 
-bool CXmlElement::getAttributeBoolean(const string& strAttributeName) const
+string CXmlElement::getNameAttribute() const
 {
-    string strAttributeValue(getAttributeString(strAttributeName));
-
-    return strAttributeValue == "true" || strAttributeValue == "1";
-}
-
-uint32_t CXmlElement::getAttributeInteger(const string &strAttributeName) const
-{
-    string strAttributeValue(getAttributeString(strAttributeName));
-
-    return strtoul(strAttributeValue.c_str(), NULL, 0);
-}
-
-int32_t CXmlElement::getAttributeSignedInteger(const string &strAttributeName) const
-{
-    string strAttributeValue(getAttributeString(strAttributeName));
-
-    return strtol(strAttributeValue.c_str(), NULL, 0);
-}
-
-double CXmlElement::getAttributeDouble(const string &strAttributeName) const
-{
-    string strAttributeValue(getAttributeString(strAttributeName));
-
-    return strtod(strAttributeValue.c_str(), NULL);
+    string attribute;
+    getAttribute("Name", attribute);
+    return attribute;
 }
 
 string CXmlElement::getTextContent() const
 {
-    xmlChar* pucXmlContent = xmlNodeGetContent(_pXmlElement);
+    xmlChar *pucXmlContent = xmlNodeGetContent(_pXmlElement);
     if (pucXmlContent == NULL) {
         return "";
     }
 
-    string strContent((const char*)pucXmlContent);
+    string strContent((const char *)pucXmlContent);
 
     xmlFree(pucXmlContent);
 
     return strContent;
 }
 
-bool CXmlElement::getChildElement(const string& strType, CXmlElement& childElement) const
+bool CXmlElement::getChildElement(const string &strType, CXmlElement &childElement) const
 {
     CChildIterator childIterator(*this);
 
@@ -161,13 +149,15 @@ bool CXmlElement::getChildElement(const string& strType, CXmlElement& childEleme
     return false;
 }
 
-bool CXmlElement::getChildElement(const string& strType, const string& strNameAttribute, CXmlElement& childElement) const
+bool CXmlElement::getChildElement(const string &strType, const string &strNameAttribute,
+                                  CXmlElement &childElement) const
 {
     CChildIterator childIterator(*this);
 
     while (childIterator.next(childElement)) {
 
-        if ((childElement.getType() == strType) && (childElement.getNameAttribute() == strNameAttribute)) {
+        if ((childElement.getType() == strType) &&
+            (childElement.getNameAttribute() == strNameAttribute)) {
 
             return true;
         }
@@ -189,9 +179,9 @@ size_t CXmlElement::getNbChildElements() const
     return uiNbChildren;
 }
 
-bool CXmlElement::getParentElement(CXmlElement& parentElement) const
+bool CXmlElement::getParentElement(CXmlElement &parentElement) const
 {
-    _xmlNode* pXmlNode = _pXmlElement->parent;
+    _xmlNode *pXmlNode = _pXmlElement->parent;
 
     if (pXmlNode->type == XML_ELEMENT_NODE) {
 
@@ -202,44 +192,46 @@ bool CXmlElement::getParentElement(CXmlElement& parentElement) const
     return false;
 }
 
-// Setters
-void CXmlElement::setAttributeBoolean(const string& strAttributeName, bool bValue)
+template <>
+void CXmlElement::setAttribute<bool>(const string &name, const bool &value)
 {
-    setAttributeString(strAttributeName, bValue ? "true" : "false");
+    setAttribute(name, value ? "true" : "false");
 }
 
-
-void CXmlElement::setAttributeString(const string& strAttributeName, const string& strValue)
+template <>
+void CXmlElement::setAttribute<std::string>(const string &name, const string &value)
 {
-    xmlNewProp(_pXmlElement, BAD_CAST strAttributeName.c_str(), BAD_CAST strValue.c_str());
+    setAttribute(name, value.c_str());
 }
 
-void CXmlElement::setAttributeInteger(const string& strAttributeName, uint32_t uiValue)
+// This method exists for 2 reasons:
+//  - at link time, all calls to setAttribute(const string&, const char [N])
+//    for any value of N will all resolve to this method; this prevents the
+//    need for one template instance per value of N.
+//  - the libxml2 API takes a C-style string anyway.
+void CXmlElement::setAttribute(const string &name, const char *value)
 {
-   ostringstream strStream;
-   strStream << uiValue;
-   setAttributeString(strAttributeName, strStream.str());
+    xmlNewProp(_pXmlElement, BAD_CAST name.c_str(), BAD_CAST value);
 }
 
-void CXmlElement::setAttributeSignedInteger(const string& strAttributeName, int32_t iValue)
+template <typename T>
+void CXmlElement::setAttribute(const std::string &name, const T &value)
 {
-   ostringstream strStream;
-   strStream << iValue;
-   setAttributeString(strAttributeName, strStream.str());
+    setAttribute(name, std::to_string(value).c_str());
 }
 
-void CXmlElement::setNameAttribute(const string& strValue)
+void CXmlElement::setNameAttribute(const string &strValue)
 {
-    setAttributeString("Name", strValue);
+    setAttribute("Name", strValue);
 }
 
-void CXmlElement::setTextContent(const string& strContent)
+void CXmlElement::setTextContent(const string &strContent)
 {
     xmlAddChild(_pXmlElement, xmlNewText(BAD_CAST strContent.c_str()));
 }
 
 // Child creation
-void CXmlElement::createChild(CXmlElement& childElement, const string& strType)
+void CXmlElement::createChild(CXmlElement &childElement, const string &strType)
 {
 #ifdef LIBXML_TREE_ENABLED
     xmlNodePtr pChildNode = xmlNewChild(_pXmlElement, NULL, BAD_CAST strType.c_str(), NULL);
@@ -249,11 +241,12 @@ void CXmlElement::createChild(CXmlElement& childElement, const string& strType)
 }
 
 // Child iteration
-CXmlElement::CChildIterator::CChildIterator(const CXmlElement& xmlElement) : _pCurNode(xmlElement._pXmlElement->children)
+CXmlElement::CChildIterator::CChildIterator(const CXmlElement &xmlElement)
+    : _pCurNode(xmlElement._pXmlElement->children)
 {
 }
 
-bool CXmlElement::CChildIterator::next(CXmlElement& xmlChildElement)
+bool CXmlElement::CChildIterator::next(CXmlElement &xmlChildElement)
 {
     while (_pCurNode) {
 
@@ -271,3 +264,28 @@ bool CXmlElement::CChildIterator::next(CXmlElement& xmlChildElement)
     return false;
 }
 
+template bool CXmlElement::getAttribute(const std::string &name, std::string &value) const;
+template bool CXmlElement::getAttribute(const std::string &name, bool &value) const;
+template bool CXmlElement::getAttribute(const std::string &name, short &value) const;
+template bool CXmlElement::getAttribute(const std::string &name, unsigned short &value) const;
+template bool CXmlElement::getAttribute(const std::string &name, int &value) const;
+template bool CXmlElement::getAttribute(const std::string &name, unsigned int &value) const;
+template bool CXmlElement::getAttribute(const std::string &name, long &value) const;
+template bool CXmlElement::getAttribute(const std::string &name, unsigned long &value) const;
+template bool CXmlElement::getAttribute(const std::string &name, long long &value) const;
+template bool CXmlElement::getAttribute(const std::string &name, unsigned long long &value) const;
+template bool CXmlElement::getAttribute(const std::string &name, float &value) const;
+template bool CXmlElement::getAttribute(const std::string &name, double &value) const;
+
+template void CXmlElement::setAttribute(const std::string &name, const std::string &value);
+template void CXmlElement::setAttribute(const std::string &name, const bool &value);
+template void CXmlElement::setAttribute(const std::string &name, const short &value);
+template void CXmlElement::setAttribute(const std::string &name, const unsigned short &value);
+template void CXmlElement::setAttribute(const std::string &name, const int &value);
+template void CXmlElement::setAttribute(const std::string &name, const unsigned int &value);
+template void CXmlElement::setAttribute(const std::string &name, const long &value);
+template void CXmlElement::setAttribute(const std::string &name, const unsigned long &value);
+template void CXmlElement::setAttribute(const std::string &name, const long long &value);
+template void CXmlElement::setAttribute(const std::string &name, const unsigned long long &value);
+template void CXmlElement::setAttribute(const std::string &name, const float &value);
+template void CXmlElement::setAttribute(const std::string &name, const double &value);

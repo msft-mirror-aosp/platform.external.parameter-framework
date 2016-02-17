@@ -35,10 +35,5 @@ template <class ElementType>
 class TElementBuilderTemplate : public CElementBuilder
 {
 public:
-
-    virtual CElement* createElement(const CXmlElement& xmlElement) const
-    {
-        (void)xmlElement;
-        return new ElementType;
-    }
+    virtual CElement *createElement(const CXmlElement & /*elem*/) const { return new ElementType; }
 };

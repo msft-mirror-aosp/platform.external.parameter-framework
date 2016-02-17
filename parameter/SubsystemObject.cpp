@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, Intel Corporation
+ * Copyright (c) 2011-2015, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -34,6 +34,7 @@
 #include "ParameterAccessContext.h"
 #include "MappingContext.h"
 #include "ParameterType.h"
+#include "convert.hpp"
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -42,11 +43,10 @@
 
 using std::string;
 
-CSubsystemObject::CSubsystemObject(CInstanceConfigurableElement* pInstanceConfigurableElement)
-    : _pInstanceConfigurableElement(pInstanceConfigurableElement),
-      _uiDataSize(pInstanceConfigurableElement->getFootPrint()),
-      _pucBlackboardLocation(NULL),
-      _uiAccessedIndex(0)
+CSubsystemObject::CSubsystemObject(CInstanceConfigurableElement *pInstanceConfigurableElement,
+                                   core::log::Logger &logger)
+    : _logger(logger), _pInstanceConfigurableElement(pInstanceConfigurableElement),
+      _dataSize(pInstanceConfigurableElement->getFootPrint())
 {
     // Syncer
     _pInstanceConfigurableElement->setSyncer(this);
@@ -64,35 +64,19 @@ string CSubsystemObject::getFormattedMappingValue() const
 }
 
 // Blackboard data location
-uint8_t* CSubsystemObject::getBlackboardLocation() const
+uint8_t *CSubsystemObject::getBlackboardLocation() const
 {
-    return _pucBlackboardLocation;
+    return _blackboard->getLocation(getOffset());
 }
 
 // Size
-uint32_t CSubsystemObject::getSize() const
+size_t CSubsystemObject::getSize() const
 {
-    return _uiDataSize;
-}
-
-// Conversion utility
-uint32_t CSubsystemObject::asInteger(const string& strValue)
-{
-    return strtoul(strValue.c_str(), NULL, 0);
-}
-
-string CSubsystemObject::asString(uint32_t uiValue)
-{
-    std::ostringstream ostr;
-
-    ostr << uiValue;
-
-    return ostr.str();
+    return _dataSize;
 }
 
 int CSubsystemObject::toPlainInteger(
-        const CInstanceConfigurableElement *instanceConfigurableElement,
-        int sizeOptimizedData)
+    const CInstanceConfigurableElement *instanceConfigurableElement, int sizeOptimizedData)
 {
     if (instanceConfigurableElement) {
 
@@ -108,31 +92,31 @@ int CSubsystemObject::toPlainInteger(
 }
 
 // Default back synchronization
-void CSubsystemObject::setDefaultValues(CParameterBlackboard& parameterBlackboard) const
+void CSubsystemObject::setDefaultValues(CParameterBlackboard &parameterBlackboard) const
 {
     string strError;
 
     // Create access context
-    CParameterAccessContext parameterAccessContext(strError, &parameterBlackboard, false);
+    CParameterAccessContext parameterAccessContext(strError, &parameterBlackboard);
 
     // Just implement back synchronization with default values
     _pInstanceConfigurableElement->setDefaultValues(parameterAccessContext);
 }
 
 // Synchronization
-bool CSubsystemObject::sync(CParameterBlackboard& parameterBlackboard, bool bBack, string& strError)
+bool CSubsystemObject::sync(CParameterBlackboard &parameterBlackboard, bool bBack, string &strError)
 {
     // Get blackboard location
-    _pucBlackboardLocation = parameterBlackboard.getLocation(_pInstanceConfigurableElement->getOffset());
+    _blackboard = &parameterBlackboard;
     // Access index init
-    _uiAccessedIndex = 0;
+    _accessedIndex = 0;
 
 #ifdef SIMULATION
     return true;
 #endif
 
     // Retrieve subsystem
-    const CSubsystem* pSubsystem = _pInstanceConfigurableElement->getBelongingSubsystem();
+    const CSubsystem *pSubsystem = _pInstanceConfigurableElement->getBelongingSubsystem();
 
     // Get it's health insdicator
     bool bIsSubsystemAlive = pSubsystem->isAlive();
@@ -146,15 +130,10 @@ bool CSubsystemObject::sync(CParameterBlackboard& parameterBlackboard, bool bBac
     // Synchronize to/from HW
     if (!bIsSubsystemAlive || !accessHW(bBack, strError)) {
 
-        strError = string("Unable to ") + (bBack ? "back" : "forward") + " synchronize configurable element " +
-                _pInstanceConfigurableElement->getPath() + ": " + strError;
-
-        log_warning("%s", strError.c_str());
-
         // Fall back to parameter default initialization
         if (bBack) {
 
-           setDefaultValues(parameterBlackboard);
+            setDefaultValues(parameterBlackboard);
         }
         return false;
     }
@@ -163,17 +142,15 @@ bool CSubsystemObject::sync(CParameterBlackboard& parameterBlackboard, bool bBac
 }
 
 // Sync to/from HW
-bool CSubsystemObject::sendToHW(string& strError)
+bool CSubsystemObject::sendToHW(string &strError)
 {
     strError = "Send to HW interface not implemented at subsystem level";
 
     return false;
 }
 
-bool CSubsystemObject::receiveFromHW(string& strError)
+bool CSubsystemObject::receiveFromHW(string & /*strError*/)
 {
-    (void)strError;
-
     // Back synchronization is not supported at subsystem level.
     // Rely on blackboard content
 
@@ -181,7 +158,7 @@ bool CSubsystemObject::receiveFromHW(string& strError)
 }
 
 // Fall back HW access
-bool CSubsystemObject::accessHW(bool bReceive, string& strError)
+bool CSubsystemObject::accessHW(bool bReceive, string &strError)
 {
     // Default access fall back
     if (bReceive) {
@@ -194,68 +171,32 @@ bool CSubsystemObject::accessHW(bool bReceive, string& strError)
 }
 
 // Blackboard access from subsystems
-void CSubsystemObject::blackboardRead(void* pvData, uint32_t uiSize)
+void CSubsystemObject::blackboardRead(void *pvData, size_t size)
 {
-    assert(_uiAccessedIndex + uiSize <= _uiDataSize);
+    _blackboard->readBuffer(pvData, size, getOffset() + _accessedIndex);
 
-    memcpy(pvData, _pucBlackboardLocation + _uiAccessedIndex, uiSize);
-
-    _uiAccessedIndex += uiSize;
+    _accessedIndex += size;
 }
 
-void CSubsystemObject::blackboardWrite(const void* pvData, uint32_t uiSize)
+void CSubsystemObject::blackboardWrite(const void *pvData, size_t size)
 {
-    assert(_uiAccessedIndex + uiSize <= _uiDataSize);
+    _blackboard->writeBuffer(pvData, size, getOffset() + _accessedIndex);
 
-    memcpy(_pucBlackboardLocation + _uiAccessedIndex, pvData, uiSize);
-
-    _uiAccessedIndex += uiSize;
-}
-
-// Logging
-void CSubsystemObject::log_info(std::string strMessage, ...) const
-{
-    char *pacBuffer;
-    va_list listPointer;
-
-    va_start(listPointer, strMessage);
-
-    vasprintf(&pacBuffer, strMessage.c_str(), listPointer);
-
-    va_end(listPointer);
-
-    if (pacBuffer != NULL) {
-        _pInstanceConfigurableElement->log_info("%s", pacBuffer);
-    }
-
-    free(pacBuffer);
-}
-
-void CSubsystemObject::log_warning(std::string strMessage, ...) const
-{
-    char *pacBuffer;
-    va_list listPointer;
-
-    va_start(listPointer, strMessage);
-
-    vasprintf(&pacBuffer, strMessage.c_str(), listPointer);
-
-    va_end(listPointer);
-
-    if (pacBuffer != NULL) {
-        _pInstanceConfigurableElement->log_warning("%s", pacBuffer);
-    }
-
-    free(pacBuffer);
+    _accessedIndex += size;
 }
 
 // Configurable element retrieval
-const CInstanceConfigurableElement* CSubsystemObject::getConfigurableElement() const
+const CInstanceConfigurableElement *CSubsystemObject::getConfigurableElement() const
 {
     return _pInstanceConfigurableElement;
 }
 // Belonging Subsystem retrieval
-const CSubsystem* CSubsystemObject::getSubsystem() const
+const CSubsystem *CSubsystemObject::getSubsystem() const
 {
     return _pInstanceConfigurableElement->getBelongingSubsystem();
+}
+
+size_t CSubsystemObject::getOffset() const
+{
+    return _pInstanceConfigurableElement->getOffset();
 }

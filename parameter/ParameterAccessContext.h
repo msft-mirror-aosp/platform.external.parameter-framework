@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, Intel Corporation
+ * Copyright (c) 2011-2016, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -30,32 +30,34 @@
 #pragma once
 
 #include <stdint.h>
-#include "ErrorContext.h"
+#include "ErrorContext.hpp"
 #include <string>
 
 class CParameterBlackboard;
 
-class CParameterAccessContext : public CErrorContext
+class CParameterAccessContext : public utility::ErrorContext
 {
 public:
-    CParameterAccessContext(std::string& strError,
-                            CParameterBlackboard* pParameterBlackboard,
-                            bool bValueSpaceIsRaw,
-                            bool bOutputRawFormatIsHex = false,
-                            uint32_t uiOffsetBase = 0);
-    CParameterAccessContext(std::string& strError,
-                            bool bBigEndianSubsystem,
-                            CParameterBlackboard* pParameterBlackboard,
-                            uint32_t uiOffsetBase = 0);
-    CParameterAccessContext(std::string& strError);
+    CParameterAccessContext(std::string &strError, CParameterBlackboard *pParameterBlackboard,
+                            bool bValueSpaceIsRaw, bool bOutputRawFormatIsHex,
+                            size_t offsetBase = 0);
+    CParameterAccessContext(std::string &strError, CParameterBlackboard *pParameterBlackboard,
+                            size_t offsetBase = 0);
+    CParameterAccessContext(std::string &strError);
+    virtual ~CParameterAccessContext() = default;
 
     // ParameterBlackboard
-    CParameterBlackboard* getParameterBlackboard();
-    void setParameterBlackboard(CParameterBlackboard* pBlackboard);
+    CParameterBlackboard *getParameterBlackboard();
+    void setParameterBlackboard(CParameterBlackboard *pBlackboard);
 
     // Value interpretation as Real or Raw
     void setValueSpaceRaw(bool bIsRaw);
     bool valueSpaceIsRaw() const;
+
+    /** @return true if setting serialization is requested,
+     *          false if structure serialization
+     */
+    virtual bool serializeSettings() const { return false; }
 
     /**
      * Assigns Output Raw Format for user get value interpretation.
@@ -72,30 +74,23 @@ public:
      */
     bool outputRawFormatIsHex() const;
 
-    // Endianness
-    void setBigEndianSubsystem(bool bBigEndian);
-    bool isBigEndianSubsystem() const;
-
     // Automatic synchronization to HW
     void setAutoSync(bool bAutoSync);
     bool getAutoSync() const;
 
     // Base offset for blackboard access
-    void setBaseOffset(uint32_t uiBaseOffset);
-    uint32_t getBaseOffset() const;
+    void setBaseOffset(size_t baseOffset);
+    size_t getBaseOffset() const;
 
 private:
     // Blackboard
-    CParameterBlackboard* _pParameterBlackboard;
+    CParameterBlackboard *_pParameterBlackboard{nullptr};
     // Value space
-    bool _bValueSpaceIsRaw;
+    bool _bValueSpaceIsRaw{false};
     // Output Raw Format
-    bool _bOutputRawFormatIsHex;
-    // Subsystem Endianness
-    bool _bBigEndianSubsystem;
+    bool _bOutputRawFormatIsHex{false};
     // Automatic synchronization to HW
-    bool _bAutoSync;
+    bool _bAutoSync{true};
     // Base offset where parameters are stored in configuration blackboards
-    uint32_t _uiBaseOffset;
+    size_t _uiBaseOffset{0};
 };
-

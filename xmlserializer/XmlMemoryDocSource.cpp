@@ -34,17 +34,13 @@
 
 #define base CXmlDocSource
 
-CXmlMemoryDocSource::CXmlMemoryDocSource(const IXmlSource* pXmlSource, bool bValidateWithSchema,
-                                         const std::string& strRootElementType,
-                                         const std::string& strXmlSchemaFile,
-                                         const std::string& strProduct,
-                                         const std::string& strVersion):
-     base(xmlNewDoc(BAD_CAST "1.0"), bValidateWithSchema,
-          xmlNewNode(NULL, BAD_CAST strRootElementType.c_str())),
-     _pXmlSource(pXmlSource),
-     _strXmlSchemaFile(strXmlSchemaFile),
-     _strProduct(strProduct),
-     _strVersion(strVersion)
+CXmlMemoryDocSource::CXmlMemoryDocSource(const IXmlSource *pXmlSource, bool bValidateWithSchema,
+                                         const std::string &strRootElementType,
+                                         const std::string &strProduct,
+                                         const std::string &strVersion)
+    : base(xmlNewDoc(BAD_CAST "1.0"), bValidateWithSchema,
+           xmlNewNode(NULL, BAD_CAST strRootElementType.c_str())),
+      _pXmlSource(pXmlSource), _strProduct(strProduct), _strVersion(strVersion)
 {
     init();
 }
@@ -58,7 +54,7 @@ void CXmlMemoryDocSource::init()
 #endif
 }
 
-bool CXmlMemoryDocSource::populate(CXmlSerializingContext& serializingContext)
+bool CXmlMemoryDocSource::populate(CXmlSerializingContext &serializingContext)
 {
 #ifndef LIBXML_TREE_ENABLED
     serializingContext.setError("XML file exporting feature unsupported on this image. " +
@@ -69,16 +65,7 @@ bool CXmlMemoryDocSource::populate(CXmlSerializingContext& serializingContext)
 #endif
 
     // Create Xml element with the Doc
-     CXmlElement docElement(_pRootNode);
-
-    if (!_strXmlSchemaFile.empty()) {
-
-        // Schema namespace
-        docElement.setAttributeString("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
-
-        // Schema location
-        docElement.setAttributeString("xsi:noNamespaceSchemaLocation", _strXmlSchemaFile);
-    }
+    CXmlElement docElement(_pRootNode);
 
     // Compose the xml document
     _pXmlSource->toXml(docElement, serializingContext);

@@ -31,17 +31,25 @@
 #include "ComponentLibrary.h"
 #include "ComponentType.h"
 #include "Component.h"
+#include "ParameterBlock.h" // for "array" instantiation
 #include "XmlParameterSerializingContext.h"
 
 #define base CTypeElement
 
-CComponentInstance::CComponentInstance(const std::string& strName) : base(strName), _pComponentType(NULL)
+CComponentInstance::CComponentInstance(const std::string &strName) : base(strName)
 {
 }
 
 std::string CComponentInstance::getKind() const
 {
-    return "Component";
+    return "ComponentInstance";
+}
+
+std::string CComponentInstance::getXmlElementName() const
+{
+    // Once instantiated components are reflected as parameter blocks
+    // in XML documents
+    return "ParameterBlock";
 }
 
 bool CComponentInstance::childrenAreDynamic() const
@@ -49,10 +57,12 @@ bool CComponentInstance::childrenAreDynamic() const
     return true;
 }
 
-bool CComponentInstance::getMappingData(const std::string& strKey, const std::string*& pStrValue) const
+bool CComponentInstance::getMappingData(const std::string &strKey,
+                                        const std::string *&pStrValue) const
 {
     // Try myself first then associated component type
-    return base::getMappingData(strKey, pStrValue) || (_pComponentType && _pComponentType->getMappingData(strKey, pStrValue));
+    return base::getMappingData(strKey, pStrValue) ||
+           (_pComponentType && _pComponentType->getMappingData(strKey, pStrValue));
 }
 
 bool CComponentInstance::hasMappingData() const
@@ -63,36 +73,35 @@ bool CComponentInstance::hasMappingData() const
 
 std::string CComponentInstance::getFormattedMapping() const
 {
-    // Try myself first then associated component type
-    std::string strValue = base::getFormattedMapping();
-    if (_pComponentType) {
-
-        strValue += _pComponentType->getFormattedMapping();
-    }
-
-    return strValue;
+    return base::getFormattedMapping(_pComponentType);
 }
 
-bool CComponentInstance::fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& serializingContext)
+bool CComponentInstance::fromXml(const CXmlElement &xmlElement,
+                                 CXmlSerializingContext &serializingContext)
 {
     // Context
-    CXmlParameterSerializingContext& parameterBuildContext = static_cast<CXmlParameterSerializingContext&>(serializingContext);
+    CXmlParameterSerializingContext &parameterBuildContext =
+        static_cast<CXmlParameterSerializingContext &>(serializingContext);
 
-    const CComponentLibrary* pComponentLibrary = parameterBuildContext.getComponentLibrary();
+    const CComponentLibrary *pComponentLibrary = parameterBuildContext.getComponentLibrary();
 
-    std::string strComponentType = xmlElement.getAttributeString("Type");
+    std::string strComponentType;
+    xmlElement.getAttribute("Type", strComponentType);
 
     _pComponentType = pComponentLibrary->getComponentType(strComponentType);
 
     if (!_pComponentType) {
 
-        serializingContext.setError("Unable to create Component " + xmlElement.getPath() + ". ComponentType " + strComponentType + " not found!");
+        serializingContext.setError("Unable to create Component " + xmlElement.getPath() +
+                                    ". ComponentType " + strComponentType + " not found!");
 
         return false;
     }
     if (_pComponentType == getParent()) {
 
-        serializingContext.setError("Recursive definition of " + _pComponentType->getName() + " due to " + xmlElement.getPath() + " referring to one of its own type.");
+        serializingContext.setError("Recursive definition of " + _pComponentType->getName() +
+                                    " due to " + xmlElement.getPath() +
+                                    " referring to one of its own type.");
 
         return false;
     }
@@ -100,14 +109,35 @@ bool CComponentInstance::fromXml(const CXmlElement& xmlElement, CXmlSerializingC
     return base::fromXml(xmlElement, serializingContext);
 }
 
-CInstanceConfigurableElement* CComponentInstance::doInstantiate() const
+CInstanceConfigurableElement *CComponentInstance::doInstantiate() const
 {
-    return new CComponent(getName(), this);
+    if (isScalar()) {
+        return new CComponent(getName(), this);
+    } else {
+        return new CParameterBlock(getName(), this);
+    }
 }
 
-void CComponentInstance::populate(CElement* pElement) const
+void CComponentInstance::populate(CElement *pElement) const
 {
-    base::populate(pElement);
+    size_t arrayLength = getArrayLength();
 
-    _pComponentType->populate(static_cast<CComponent*>(pElement));
+    if (arrayLength != 0) {
+
+        // Create child elements
+        for (size_t child = 0; child < arrayLength; child++) {
+
+            CComponent *pChildComponent = new CComponent(std::to_string(child), this);
+
+            pElement->addChild(pChildComponent);
+
+            base::populate(pChildComponent);
+
+            _pComponentType->populate(pChildComponent);
+        }
+    } else {
+        base::populate(pElement);
+
+        _pComponentType->populate(static_cast<CComponent *>(pElement));
+    }
 }

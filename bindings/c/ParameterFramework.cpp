@@ -31,6 +31,8 @@
 #include "ParameterFramework.h"
 #include <ParameterMgrPlatformConnector.h>
 
+#include <NonCopyable.hpp>
+
 #include <iostream>
 #include <limits>
 #include <string>
@@ -45,9 +47,9 @@ using std::string;
 /** Rename long pfw types to short ones in pfw namespace. */
 namespace pfw
 {
-    typedef ISelectionCriterionInterface Criterion;
-    typedef std::map<string, Criterion *> Criteria;
-    typedef CParameterMgrPlatformConnector Pfw;
+typedef ISelectionCriterionInterface Criterion;
+typedef std::map<string, Criterion *> Criteria;
+typedef CParameterMgrPlatformConnector Pfw;
 }
 
 /** Class to abstract the boolean+string status api. */
@@ -57,16 +59,27 @@ public:
     /** Fail without an instance of status. */
     static bool failure() { return false; }
     /** Fail with the given error msg. */
-    bool failure(const string &msg) { mMsg = msg; return false; }
+    bool failure(const string &msg)
+    {
+        mMsg = msg;
+        return false;
+    }
     /** Success (no error message). */
-    bool success() { mMsg.clear(); return true; }
+    bool success()
+    {
+        mMsg.clear();
+        return true;
+    }
 
     /** Forward a status operation.
-      * @param success[in] the operaton status to forward
+      * @param[in] success the operaton status to forward
       *                    or forward a previous failure if omitted
       */
-    bool forward(bool success = false) {
-        if (success) { mMsg.clear(); }
+    bool forward(bool success = false)
+    {
+        if (success) {
+            mMsg.clear();
+        }
         return success;
     }
     /** Error message accessors.
@@ -85,7 +98,8 @@ private:
 ///////////////////////////////
 
 /** Default log callback. Log to cout or cerr depending on level. */
-static void defaultLogCb(void *, PfwLogLevel level, const char *logLine) {
+static void defaultLogCb(void *, PfwLogLevel level, const char *logLine)
+{
     switch (level) {
     case pfwLogInfo:
         std::cout << logLine << std::endl;
@@ -96,7 +110,7 @@ static void defaultLogCb(void *, PfwLogLevel level, const char *logLine) {
     };
 }
 
-static PfwLogger defaultLogger = { NULL, &defaultLogCb };
+static PfwLogger defaultLogger = {NULL, &defaultLogCb};
 
 class LogWrapper : public CParameterMgrPlatformConnector::ILogger
 {
@@ -105,15 +119,18 @@ public:
     LogWrapper() : mLogger() {}
     virtual ~LogWrapper() {}
 private:
-    virtual void log(bool bIsWarning, const string &strLog)
+    void info(const string &msg) override { log(pfwLogInfo, msg); }
+
+    void warning(const string &msg) override { log(pfwLogWarning, msg); }
+
+    void log(PfwLogLevel level, const string &strLog)
     {
         // A LogWrapper should NOT be register to the pfw (thus log called)
         // if logCb is NULL.
         assert(mLogger.logCb != NULL);
-        mLogger.logCb(mLogger.userCtx,
-                      bIsWarning ? pfwLogWarning : pfwLogInfo,
-                      strLog.c_str());
+        mLogger.logCb(mLogger.userCtx, level, strLog.c_str());
     }
+
     PfwLogger mLogger;
 };
 
@@ -121,21 +138,21 @@ private:
 ///////////// Core ////////////
 ///////////////////////////////
 
-struct PfwHandler_
+struct PfwHandler_ : private utility::NonCopyable
 {
     void setLogger(const PfwLogger *logger);
     bool createCriteria(const PfwCriterion criteria[], size_t criterionNb);
 
     pfw::Criteria criteria;
-    pfw::Pfw *pfw;
+    pfw::Pfw *pfw = nullptr;
     /** Status of the last called function.
       * Is mutable because even a const function can fail.
       */
     mutable Status lastStatus;
+
 private:
     LogWrapper mLogger;
 };
-
 
 PfwHandler *pfwCreate()
 {
@@ -144,9 +161,7 @@ PfwHandler *pfwCreate()
 
 void pfwDestroy(PfwHandler *handle)
 {
-    if(handle != NULL and handle->pfw != NULL) {
-        delete handle->pfw;
-    }
+    delete handle->pfw;
     delete handle;
 }
 
@@ -158,7 +173,6 @@ void PfwHandler::setLogger(const PfwLogger *logger)
     mLogger = logger != NULL ? *logger : defaultLogger;
     pfw->setLogger(&mLogger);
 }
-
 
 bool PfwHandler::createCriteria(const PfwCriterion criteriaArray[], size_t criterionNb)
 {
@@ -174,8 +188,7 @@ bool PfwHandler::createCriteria(const PfwCriterion criteriaArray[], size_t crite
         }
         // Check that the criterion does not exist
         if (criteria.find(criterion.name) != criteria.end()) {
-            return status.failure("Criterion \"" + string(criterion.name) +
-                                  "\" already exist");
+            return status.failure("Criterion \"" + string(criterion.name) + "\" already exist");
         }
 
         // Create criterion type
@@ -187,18 +200,19 @@ bool PfwHandler::createCriteria(const PfwCriterion criteriaArray[], size_t crite
             int value;
             if (criterion.inclusive) {
                 // Check that (int)1 << valueIndex would not overflow (UB)
-                if(std::numeric_limits<int>::max() >> valueIndex == 0) {
+                if (std::numeric_limits<int>::max() >> valueIndex == 0) {
                     return status.failure("Too many values for criterion " +
                                           string(criterion.name));
                 }
                 value = 1 << valueIndex;
             } else {
-                value = valueIndex;
+                value = static_cast<int>(valueIndex);
             }
-            const char * valueName = criterion.values[valueIndex];
-            if(not type->addValuePair(value, valueName)) {
+            const char *valueName = criterion.values[valueIndex];
+            string error;
+            if (not type->addValuePair(value, valueName, error)) {
                 return status.failure("Could not add value " + string(valueName) +
-                                      " to criterion " + criterion.name);
+                                      " to criterion " + criterion.name + ": " + error);
             }
         }
         // Create criterion and add it to the pfw
@@ -207,26 +221,14 @@ bool PfwHandler::createCriteria(const PfwCriterion criteriaArray[], size_t crite
     return status.success();
 }
 
-
-bool pfwStart(PfwHandler *handle, const char *configPath,
-              const PfwCriterion criteria[], size_t criterionNb,
-              const PfwLogger *logger)
+bool pfwStart(PfwHandler *handle, const char *configPath, const PfwCriterion criteria[],
+              size_t criterionNb, const PfwLogger *logger)
 {
     // Check that the api is correctly used
-    if (handle == NULL) { return Status::failure(); }
     Status &status = handle->lastStatus;
 
     if (handle->pfw != NULL) {
         return status.failure("Can not start an already started parameter framework");
-    }
-    if (configPath == NULL) {
-        return status.failure("char *configPath is NULL, "
-                              "while starting the parameter framework");
-    }
-    if (criteria == NULL) {
-        return status.failure("char *criteria is NULL, "
-                              "while starting the parameter framework "
-                              "(config path is " + string(configPath) + ")");
     }
     // Create a pfw
     handle->pfw = new CParameterMgrPlatformConnector(configPath);
@@ -242,11 +244,10 @@ bool pfwStart(PfwHandler *handle, const char *configPath,
 
 const char *pfwGetLastError(const PfwHandler *handle)
 {
-    return handle == NULL ? NULL : handle->lastStatus.msg().c_str();
+    return handle->lastStatus.msg().c_str();
 }
 
-static pfw::Criterion *getCriterion(const pfw::Criteria &criteria,
-                                    const string &name)
+static pfw::Criterion *getCriterion(const pfw::Criteria &criteria, const string &name)
 {
     pfw::Criteria::const_iterator it = criteria.find(name);
     return it == criteria.end() ? NULL : it->second;
@@ -254,12 +255,7 @@ static pfw::Criterion *getCriterion(const pfw::Criteria &criteria,
 
 bool pfwSetCriterion(PfwHandler *handle, const char name[], int value)
 {
-    if (handle == NULL) { return Status::failure(); }
     Status &status = handle->lastStatus;
-    if (name == NULL) {
-        return status.failure("char *name of the criterion is NULL, "
-                              "while setting a criterion.");
-    }
     if (handle->pfw == NULL) {
         return status.failure("Can not set criterion \"" + string(name) +
                               "\" as the parameter framework is not started.");
@@ -273,19 +269,10 @@ bool pfwSetCriterion(PfwHandler *handle, const char name[], int value)
 }
 bool pfwGetCriterion(const PfwHandler *handle, const char name[], int *value)
 {
-    if (handle == NULL) { return Status::failure(); }
     Status &status = handle->lastStatus;
-    if (name == NULL) {
-        return status.failure("char *name of the criterion is NULL, "
-                              "while getting a criterion.");
-    }
     if (handle->pfw == NULL) {
         return status.failure("Can not get criterion \"" + string(name) +
                               "\" as the parameter framework is not started.");
-    }
-    if (value == NULL) {
-        return status.failure("Can not get criterion \"" + string(name) +
-                              "\" as the out value is NULL.");
     }
     pfw::Criterion *criterion = getCriterion(handle->criteria, name);
     if (criterion == NULL) {
@@ -297,7 +284,6 @@ bool pfwGetCriterion(const PfwHandler *handle, const char name[], int *value)
 
 bool pfwApplyConfigurations(const PfwHandler *handle)
 {
-    if (handle == NULL) { return Status::failure(); }
     Status &status = handle->lastStatus;
     if (handle->pfw == NULL) {
         return status.failure("Can not commit criteria "
@@ -319,15 +305,11 @@ struct PfwParameterHandler_
 
 PfwParameterHandler *pfwBindParameter(PfwHandler *handle, const char path[])
 {
-    if (handle == NULL) { return NULL; }
     Status &status = handle->lastStatus;
-    if (path == NULL) {
-        status.failure("Can not bind a parameter without its path");
-        return NULL;
-    }
     if (handle->pfw == NULL) {
         status.failure("The parameter framework is not started, "
-                       "while trying to bind parameter \"" + string(path) + "\")");
+                       "while trying to bind parameter \"" +
+                       string(path) + "\")");
         return NULL;
     }
 
@@ -344,43 +326,30 @@ PfwParameterHandler *pfwBindParameter(PfwHandler *handle, const char path[])
 
 void pfwUnbindParameter(PfwParameterHandler *handle)
 {
-    if (handle == NULL) { return; }
     delete &handle->parameter;
     delete handle;
 }
 
-
 bool pfwGetIntParameter(const PfwParameterHandler *handle, int32_t *value)
 {
-    if (handle == NULL) { return Status::failure(); }
     Status &status = handle->pfw.lastStatus;
-    if (value == NULL) {
-        return status.failure("int32_t *value is NULL, "
-                    "while trying to get parameter \"" +
-                    handle->parameter.getPath() + "\" value as int)");
-    }
     return status.forward(handle->parameter.getAsSignedInteger(*value, status.msg()));
 }
 bool pfwSetIntParameter(PfwParameterHandler *handle, int32_t value)
 {
-    if (handle == NULL) { return Status::failure(); }
     Status &status = handle->pfw.lastStatus;
     return status.forward(handle->parameter.setAsSignedInteger(value, status.msg()));
 }
 
-bool pfwGetStringParameter(const PfwParameterHandler *handle, const char *value[])
+bool pfwGetStringParameter(const PfwParameterHandler *handle, char *value[])
 {
-    if (handle == NULL) { return Status::failure(); }
     Status &status = handle->pfw.lastStatus;
-    if (value == NULL) {
-        return status.failure("char **value is NULL, "
-                    "while trying to get parameter \"" +
-                    handle->parameter.getPath() + "\" value as string)");
-    }
     *value = NULL;
     string retValue;
     bool success = handle->parameter.getAsString(retValue, status.msg());
-    if (not success) { return status.forward(); }
+    if (not success) {
+        return status.forward();
+    }
 
     *value = strdup(retValue.c_str());
     return status.success();
@@ -388,10 +357,11 @@ bool pfwGetStringParameter(const PfwParameterHandler *handle, const char *value[
 
 bool pfwSetStringParameter(PfwParameterHandler *handle, const char value[])
 {
-    if (handle == NULL) { return Status::failure(); }
     Status &status = handle->pfw.lastStatus;
     return status.forward(handle->parameter.setAsString(value, status.msg()));
 }
 
-void pfwFree(void *ptr) { std::free(ptr); }
-
+void pfwFree(void *ptr)
+{
+    std::free(ptr);
+}

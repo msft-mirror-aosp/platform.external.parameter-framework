@@ -44,7 +44,7 @@
 
 using std::string;
 
-CFixedPointParameterType::CFixedPointParameterType(const string& strName) : base(strName), _uiIntegral(0), _uiFractional(0)
+CFixedPointParameterType::CFixedPointParameterType(const string &strName) : base(strName)
 {
 }
 
@@ -54,73 +54,78 @@ string CFixedPointParameterType::getKind() const
 }
 
 // Element properties
-void CFixedPointParameterType::showProperties(string& strResult) const
+void CFixedPointParameterType::showProperties(string &strResult) const
 {
     base::showProperties(strResult);
 
     // Notation
     strResult += "Notation: Q";
-    strResult += CUtility::toString(_uiIntegral);
+    strResult += std::to_string(_uiIntegral);
     strResult += ".";
-    strResult += CUtility::toString(_uiFractional);
+    strResult += std::to_string(_uiFractional);
     strResult += "\n";
 }
 
 // XML Serialization value space handling
 // Value space handling for configuration import
-void CFixedPointParameterType::handleValueSpaceAttribute(CXmlElement& xmlConfigurableElementSettingsElement, CConfigurationAccessContext& configurationAccessContext) const
+void CFixedPointParameterType::handleValueSpaceAttribute(
+    CXmlElement &xmlConfigurableElementSettingsElement,
+    CConfigurationAccessContext &configurationAccessContext) const
 {
     // Direction?
     if (!configurationAccessContext.serializeOut()) {
 
-        // Get Value space from XML
-        if (xmlConfigurableElementSettingsElement.hasAttribute("ValueSpace")) {
-
-            configurationAccessContext.setValueSpaceRaw(xmlConfigurableElementSettingsElement.getAttributeBoolean("ValueSpace", "Raw"));
-        } else {
-
-            configurationAccessContext.setValueSpaceRaw(false);
-        }
+        string strValueSpace;
+        xmlConfigurableElementSettingsElement.getAttribute("ValueSpace", strValueSpace);
+        configurationAccessContext.setValueSpaceRaw(strValueSpace == "Raw");
     } else {
         // Provide value space only if not the default one
         if (configurationAccessContext.valueSpaceIsRaw()) {
 
-            xmlConfigurableElementSettingsElement.setAttributeString("ValueSpace", "Raw");
+            xmlConfigurableElementSettingsElement.setAttribute("ValueSpace", "Raw");
         }
     }
 }
 
-bool CFixedPointParameterType::fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& serializingContext)
+bool CFixedPointParameterType::fromXml(const CXmlElement &xmlElement,
+                                       CXmlSerializingContext &serializingContext)
 {
     // Size
-    uint32_t uiSizeInBits = xmlElement.getAttributeInteger("Size");
+    size_t sizeInBits = 0;
+    xmlElement.getAttribute("Size", sizeInBits);
 
     // Q notation
-    _uiIntegral = xmlElement.getAttributeInteger("Integral");
-    _uiFractional = xmlElement.getAttributeInteger("Fractional");
+    xmlElement.getAttribute("Integral", _uiIntegral);
+    xmlElement.getAttribute("Fractional", _uiFractional);
 
     // Size vs. Q notation integrity check
-    if (uiSizeInBits < getUtilSizeInBits()) {
+    if (sizeInBits < getUtilSizeInBits()) {
 
-        serializingContext.setError("Inconsistent Size vs. Q notation for " + getKind() + " " + xmlElement.getPath() + ": Summing (Integral + _uiFractional + 1) should not exceed given Size (" + xmlElement.getAttributeString("Size") + ")");
+        std::string size;
+        xmlElement.getAttribute("Size", size);
+        serializingContext.setError(
+            "Inconsistent Size vs. Q notation for " + getKind() + " " + xmlElement.getPath() +
+            ": Summing (Integral + _uiFractional + 1) should not exceed given Size (" + size + ")");
 
         return false;
     }
 
     // Set the size
-    setSize(uiSizeInBits / 8);
+    setSize(sizeInBits / 8);
 
     return base::fromXml(xmlElement, serializingContext);
 }
 
-bool CFixedPointParameterType::toBlackboard(const string& strValue, uint32_t& uiValue, CParameterAccessContext& parameterAccessContext) const
+bool CFixedPointParameterType::toBlackboard(const string &strValue, uint32_t &uiValue,
+                                            CParameterAccessContext &parameterAccessContext) const
 {
-    bool bValueProvidedAsHexa = isHexadecimal(strValue);
+    bool bValueProvidedAsHexa = utility::isHexadecimal(strValue);
 
     // Check data integrity
     if (bValueProvidedAsHexa && !parameterAccessContext.valueSpaceIsRaw()) {
 
-        parameterAccessContext.setError("Hexadecimal values are not supported for " + getKind() + " when selected value space is real:");
+        parameterAccessContext.setError("Hexadecimal values are not supported for " + getKind() +
+                                        " when selected value space is real:");
 
         return false;
     }
@@ -130,18 +135,18 @@ bool CFixedPointParameterType::toBlackboard(const string& strValue, uint32_t& ui
         if (bValueProvidedAsHexa) {
 
             return convertFromHexadecimal(strValue, uiValue, parameterAccessContext);
-
         }
         return convertFromDecimal(strValue, uiValue, parameterAccessContext);
     }
     return convertFromQnm(strValue, uiValue, parameterAccessContext);
 }
 
-void CFixedPointParameterType::setOutOfRangeError(const string& strValue, CParameterAccessContext& parameterAccessContext) const
+void CFixedPointParameterType::setOutOfRangeError(
+    const string &strValue, CParameterAccessContext &parameterAccessContext) const
 {
-    std::ostringstream strStream;
+    std::ostringstream stream;
 
-    strStream << "Value " << strValue << " standing out of admitted ";
+    stream << "Value " << strValue << " standing out of admitted ";
 
     if (!parameterAccessContext.valueSpaceIsRaw()) {
 
@@ -150,79 +155,81 @@ void CFixedPointParameterType::setOutOfRangeError(const string& strValue, CParam
         double dMax = 0;
         getRange(dMin, dMax);
 
-        strStream << std::fixed << std::setprecision(_uiFractional)
-                  << "real range [" << dMin << ", " << dMax << "]";
+        stream << std::fixed << std::setprecision(_uiFractional) << "real range [" << dMin << ", "
+               << dMax << "]";
     } else {
 
         // Min/Max computation
         int32_t iMax = getMaxValue<uint32_t>();
         int32_t iMin = -iMax - 1;
 
-        strStream << "raw range [";
+        stream << "raw range [";
 
-        if (isHexadecimal(strValue)) {
+        if (utility::isHexadecimal(strValue)) {
+
+            stream << std::hex << std::uppercase << std::setw(static_cast<int>(getSize()) * 2)
+                   << std::setfill('0');
 
             // Format Min
-            strStream << "0x" << std::hex << std::uppercase <<
-                std::setw(getSize() * 2) << std::setfill('0') << makeEncodable(iMin);
+            stream << "0x" << makeEncodable(iMin);
             // Format Max
-            strStream << ", 0x" << std::hex << std::uppercase <<
-                std::setw(getSize() * 2) << std::setfill('0') << makeEncodable(iMax);
+            stream << ", 0x" << makeEncodable(iMax);
 
         } else {
 
-            strStream << iMin << ", " << iMax;
+            stream << iMin << ", " << iMax;
         }
 
-        strStream << "]";
+        stream << "]";
     }
-    strStream << " for " << getKind();
+    stream << " for " << getKind();
 
-    parameterAccessContext.setError(strStream.str());
+    parameterAccessContext.setError(stream.str());
 }
 
-bool CFixedPointParameterType::fromBlackboard(string& strValue, const uint32_t& uiValue, CParameterAccessContext& parameterAccessContext) const
+bool CFixedPointParameterType::fromBlackboard(string &strValue, const uint32_t &value,
+                                              CParameterAccessContext &parameterAccessContext) const
 {
-    int32_t iData = uiValue;
-
     // Check encodability
-    assert(isEncodable((uint32_t)iData, false));
+    assert(isEncodable(value, false));
 
     // Format
-    std::ostringstream strStream;
+    std::ostringstream stream;
 
     // Raw formatting?
     if (parameterAccessContext.valueSpaceIsRaw()) {
-
         // Hexa formatting?
         if (parameterAccessContext.outputRawFormatIsHex()) {
+            uint32_t data = static_cast<uint32_t>(value);
 
-            strStream << "0x" << std::hex << std::uppercase << std::setw(getSize()*2) << std::setfill('0') << (uint32_t)iData;
+            stream << "0x" << std::hex << std::uppercase
+                   << std::setw(static_cast<int>(getSize() * 2)) << std::setfill('0') << data;
         } else {
+            int32_t data = value;
 
             // Sign extend
-            signExtend(iData);
+            signExtend(data);
 
-            strStream << iData;
+            stream << data;
         }
     } else {
+        int32_t data = value;
 
         // Sign extend
-        signExtend(iData);
+        signExtend(data);
 
         // Conversion
-        double dData = binaryQnmToDouble(iData);
-
-        strStream << std::fixed << std::setprecision(_uiFractional) << dData;
+        stream << std::fixed << std::setprecision(_uiFractional) << binaryQnmToDouble(data);
     }
 
-    strValue = strStream.str();
+    strValue = stream.str();
 
     return true;
 }
 
 // Value access
-bool CFixedPointParameterType::toBlackboard(double dUserValue, uint32_t& uiValue, CParameterAccessContext& parameterAccessContext) const
+bool CFixedPointParameterType::toBlackboard(double dUserValue, uint32_t &uiValue,
+                                            CParameterAccessContext &parameterAccessContext) const
 {
     // Check that the value is within the allowed range for this type
     if (!checkValueAgainstRange(dUserValue)) {
@@ -244,10 +251,9 @@ bool CFixedPointParameterType::toBlackboard(double dUserValue, uint32_t& uiValue
     return true;
 }
 
-bool CFixedPointParameterType::fromBlackboard(double& dUserValue, uint32_t uiValue, CParameterAccessContext& parameterAccessContext) const
+bool CFixedPointParameterType::fromBlackboard(double &dUserValue, uint32_t uiValue,
+                                              CParameterAccessContext & /*ctx*/) const
 {
-    (void)parameterAccessContext;
-
     int32_t iData = uiValue;
 
     // Check unsigned value is encodable
@@ -262,59 +268,52 @@ bool CFixedPointParameterType::fromBlackboard(double& dUserValue, uint32_t uiVal
 }
 
 // Util size
-uint32_t CFixedPointParameterType::getUtilSizeInBits() const
+size_t CFixedPointParameterType::getUtilSizeInBits() const
 {
     return _uiIntegral + _uiFractional + 1;
 }
 
 // Compute the range for the type (minimum and maximum values)
-void CFixedPointParameterType::getRange(double& dMin, double& dMax) const
+void CFixedPointParameterType::getRange(double &dMin, double &dMax) const
 {
-    dMax = (double)((1UL << (_uiIntegral + _uiFractional)) - 1) / (1UL << _uiFractional);
-    dMin = -(double)(1UL << (_uiIntegral + _uiFractional)) / (1UL << _uiFractional);
+    dMax = ((1U << (_uiIntegral + _uiFractional)) - 1) / double(1U << _uiFractional);
+    dMin = -((1U << (_uiIntegral + _uiFractional)) / double(1U << _uiFractional));
 }
 
-bool CFixedPointParameterType::isHexadecimal(const string& strValue) const
-{
-    return !strValue.compare(0, 2, "0x");
-}
-
-bool CFixedPointParameterType::convertFromHexadecimal(const string& strValue, uint32_t& uiValue, CParameterAccessContext& parameterAccessContext) const
+bool CFixedPointParameterType::convertFromHexadecimal(
+    const string &strValue, uint32_t &uiValue,
+    CParameterAccessContext &parameterAccessContext) const
 {
     // For hexadecimal representation, we need full 32 bit range conversion.
-    uint32_t uiData;
-    if (!convertTo(strValue, uiData) || !isEncodable(uiData, false)) {
+    if (!convertTo(strValue, uiValue) || !isEncodable(uiValue, false)) {
 
         setOutOfRangeError(strValue, parameterAccessContext);
         return false;
     }
-    signExtend((int32_t&)uiData);
+    signExtend(reinterpret_cast<int32_t &>(uiValue));
 
     // check that the data is encodable and can been safely written to the blackboard
-    assert(isEncodable(uiData, true));
-    uiValue = uiData;
+    assert(isEncodable(uiValue, true));
 
     return true;
 }
 
-bool CFixedPointParameterType::convertFromDecimal(const string& strValue, uint32_t& uiValue, CParameterAccessContext& parameterAccessContext) const
+bool CFixedPointParameterType::convertFromDecimal(
+    const string &strValue, uint32_t &uiValue,
+    CParameterAccessContext &parameterAccessContext) const
 {
-    int32_t iData;
-
-    if (!convertTo(strValue, iData) || !isEncodable((uint32_t)iData, true)) {
+    if (!convertTo(strValue, reinterpret_cast<int32_t &>(uiValue)) || !isEncodable(uiValue, true)) {
 
         setOutOfRangeError(strValue, parameterAccessContext);
         return false;
     }
-    uiValue = static_cast<uint32_t>(iData);
-
     return true;
 }
 
-bool CFixedPointParameterType::convertFromQnm(const string& strValue, uint32_t& uiValue,
-                                              CParameterAccessContext& parameterAccessContext) const
+bool CFixedPointParameterType::convertFromQnm(const string &strValue, uint32_t &uiValue,
+                                              CParameterAccessContext &parameterAccessContext) const
 {
-    double dData;
+    double dData = 0;
 
     if (!convertTo(strValue, dData) || !checkValueAgainstRange(dData)) {
 
@@ -343,7 +342,7 @@ bool CFixedPointParameterType::checkValueAgainstRange(double dValue) const
 int32_t CFixedPointParameterType::doubleToBinaryQnm(double dValue) const
 {
     // For Qn.m number, multiply by 2^n and round to the nearest integer
-    int32_t iData = static_cast<int32_t>(round(dValue * (1UL << _uiFractional)));
+    int32_t iData = static_cast<int32_t>(round(dValue * double(1UL << _uiFractional)));
     // Left justify
     // For a Qn.m number, shift 32 - (n + m + 1) bits to the left (the rest of
     // the bits aren't used)
@@ -352,25 +351,25 @@ int32_t CFixedPointParameterType::doubleToBinaryQnm(double dValue) const
     return iData;
 }
 
-
 double CFixedPointParameterType::binaryQnmToDouble(int32_t iValue) const
 {
     // Unjustify
     iValue >>= getSize() * 8 - getUtilSizeInBits();
-    return static_cast<double>(iValue) / (1UL << _uiFractional);
+    return static_cast<double>(iValue) / double(1UL << _uiFractional);
 }
 
 // From IXmlSource
-void CFixedPointParameterType::toXml(CXmlElement& xmlElement, CXmlSerializingContext& serializingContext) const
+void CFixedPointParameterType::toXml(CXmlElement &xmlElement,
+                                     CXmlSerializingContext &serializingContext) const
 {
     // Size
-    xmlElement.setAttributeString("Size", CUtility::toString(getSize() * 8));
+    xmlElement.setAttribute("Size", getSize() * 8);
 
     // Integral
-    xmlElement.setAttributeString("Integral", CUtility::toString(_uiIntegral));
+    xmlElement.setAttribute("Integral", _uiIntegral);
 
     // Fractional
-    xmlElement.setAttributeString("Fractional", CUtility::toString(_uiFractional));
+    xmlElement.setAttribute("Fractional", _uiFractional);
 
     base::toXml(xmlElement, serializingContext);
 }

@@ -32,6 +32,8 @@
 #include "XmlDocSource.h"
 #include "XmlSerializingContext.h"
 
+#include "NonCopyable.hpp"
+
 /**
   * The CXmlDocSink class defines how to use a CXmlDocSource.
   * The interaction between the xml source and xml sink is defined
@@ -39,7 +41,7 @@
   * for different purpose by implementing the doProcess method and then
   * use it with any existing implementation of CXmlDocSource.
   */
-class CXmlDocSink
+class CXmlDocSink : private utility::NonCopyable
 {
 public:
     /**
@@ -52,7 +54,7 @@ public:
       *
       * @return true is there was no error during the processing of xmlDocSource
       */
-    bool process(CXmlDocSource& xmlDocSource, CXmlSerializingContext& serializingContext)
+    bool process(CXmlDocSource &xmlDocSource, CXmlSerializingContext &serializingContext)
     {
         if (!xmlDocSource.populate(serializingContext)) {
             return false;
@@ -73,5 +75,6 @@ private:
       *
       * @return true is there was no error during the processing of xmlDocSource
       */
-    virtual bool doProcess(CXmlDocSource& xmlDocSource, CXmlSerializingContext& serializingContext) = 0;
+    virtual bool doProcess(CXmlDocSource &xmlDocSource,
+                           CXmlSerializingContext &serializingContext) = 0;
 };

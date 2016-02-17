@@ -31,27 +31,25 @@
 
 #define base CKindElement
 
-CPluginLocation::CPluginLocation(const std::string& strName, const std::string& strKind) : base(strName, strKind)
+CPluginLocation::CPluginLocation(const std::string &strName, const std::string &strKind)
+    : base(strName, strKind)
 {
-
 }
 
-const std::string& CPluginLocation::getFolder() const
+const std::string &CPluginLocation::getFolder() const
 {
     return _strFolder;
 }
 
-const std::list<std::string>& CPluginLocation::getPluginList() const
+const std::list<std::string> &CPluginLocation::getPluginList() const
 {
     return _pluginList;
 }
 
-bool CPluginLocation::fromXml(const CXmlElement &xmlElement, CXmlSerializingContext &serializingContext)
+bool CPluginLocation::fromXml(const CXmlElement &xmlElement, CXmlSerializingContext & /*ctx*/)
 {
-    (void) serializingContext;
-
     // Retrieve folder
-    _strFolder = xmlElement.getAttributeString("Folder");
+    xmlElement.getAttribute("Folder", _strFolder);
 
     // Get Info from children
     CXmlElement::CChildIterator childIterator(xmlElement);
@@ -61,7 +59,7 @@ bool CPluginLocation::fromXml(const CXmlElement &xmlElement, CXmlSerializingCont
     while (childIterator.next(xmlPluginElement)) {
 
         // Fill Plugin List
-        _pluginList.push_back(xmlPluginElement.getAttributeString("Name"));
+        _pluginList.push_back(xmlPluginElement.getNameAttribute());
     }
 
     // Don't dig

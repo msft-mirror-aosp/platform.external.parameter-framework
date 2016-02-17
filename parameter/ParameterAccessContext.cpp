@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, Intel Corporation
+ * Copyright (c) 2011-2016, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -29,54 +29,48 @@
  */
 #include "ParameterAccessContext.h"
 
-#define base CErrorContext
+#define base utility::ErrorContext
 
-CParameterAccessContext::CParameterAccessContext(std::string& strError,
-                                                 CParameterBlackboard* pParameterBlackboard,
-                                                 bool bValueSpaceIsRaw,
-                                                 bool bOutputRawFormatIsHex,
-                                                 uint32_t uiBaseOffset)
+CParameterAccessContext::CParameterAccessContext(std::string &strError,
+                                                 CParameterBlackboard *pParameterBlackboard,
+                                                 bool bValueSpaceIsRaw, bool bOutputRawFormatIsHex,
+                                                 size_t baseOffset)
     : base(strError), _pParameterBlackboard(pParameterBlackboard),
-    _bValueSpaceIsRaw(bValueSpaceIsRaw), _bOutputRawFormatIsHex(bOutputRawFormatIsHex),
-    _bBigEndianSubsystem(false), _bAutoSync(true), _uiBaseOffset(uiBaseOffset)
+      _bValueSpaceIsRaw(bValueSpaceIsRaw), _bOutputRawFormatIsHex(bOutputRawFormatIsHex),
+      _uiBaseOffset(baseOffset)
 {
 }
 
-CParameterAccessContext::CParameterAccessContext(std::string& strError,
-                                                 bool bBigEndianSubsystem,
-                                                 CParameterBlackboard* pParameterBlackboard,
-                                                 uint32_t uiBaseOffset)
-    : base(strError), _pParameterBlackboard(pParameterBlackboard), _bValueSpaceIsRaw(false),
-    _bOutputRawFormatIsHex(false), _bBigEndianSubsystem(bBigEndianSubsystem), _bAutoSync(true),
-    _uiBaseOffset(uiBaseOffset)
+CParameterAccessContext::CParameterAccessContext(std::string &strError,
+                                                 CParameterBlackboard *pParameterBlackboard,
+                                                 size_t baseOffset)
+    : base(strError), _pParameterBlackboard(pParameterBlackboard), _uiBaseOffset(baseOffset)
 {
 }
 
-CParameterAccessContext::CParameterAccessContext(std::string& strError)
-    : base(strError), _pParameterBlackboard(NULL), _bValueSpaceIsRaw(false),
-    _bOutputRawFormatIsHex(false), _bBigEndianSubsystem(false), _bAutoSync(true), _uiBaseOffset(0)
+CParameterAccessContext::CParameterAccessContext(std::string &strError) : base(strError)
 {
 }
 
 // ParameterBlackboard
-CParameterBlackboard* CParameterAccessContext::getParameterBlackboard()
+CParameterBlackboard *CParameterAccessContext::getParameterBlackboard()
 {
     return _pParameterBlackboard;
 }
 
-void CParameterAccessContext::setParameterBlackboard(CParameterBlackboard* pBlackboard)
+void CParameterAccessContext::setParameterBlackboard(CParameterBlackboard *pBlackboard)
 {
     _pParameterBlackboard = pBlackboard;
     _uiBaseOffset = 0;
 }
 
 // Base offset for blackboard access
-void CParameterAccessContext::setBaseOffset(uint32_t uiBaseOffset)
+void CParameterAccessContext::setBaseOffset(size_t baseOffset)
 {
-    _uiBaseOffset = uiBaseOffset;
+    _uiBaseOffset = baseOffset;
 }
 
-uint32_t CParameterAccessContext::getBaseOffset() const
+size_t CParameterAccessContext::getBaseOffset() const
 {
     return _uiBaseOffset;
 }
@@ -101,17 +95,6 @@ void CParameterAccessContext::setOutputRawFormat(bool bIsHex)
 bool CParameterAccessContext::outputRawFormatIsHex() const
 {
     return _bOutputRawFormatIsHex;
-}
-
-// Endianness
-void CParameterAccessContext::setBigEndianSubsystem(bool bBigEndian)
-{
-    _bBigEndianSubsystem = bBigEndian;
-}
-
-bool CParameterAccessContext::isBigEndianSubsystem() const
-{
-    return _bBigEndianSubsystem;
 }
 
 // Automatic synchronization to HW

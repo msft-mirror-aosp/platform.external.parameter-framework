@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, Intel Corporation
+ * Copyright (c) 2011-2015, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -34,25 +34,24 @@
 class CEnumValuePair : public CElement
 {
 public:
-    CEnumValuePair();
-
     // Numerical
     int32_t getNumerical() const;
     std::string getNumericalAsString() const;
 
     // From IXmlSink
-    virtual bool fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& serializingContext);
+    virtual bool fromXml(const CXmlElement &xmlElement, CXmlSerializingContext &serializingContext);
 
     // From IXmlSource
-    virtual void toXml(CXmlElement& xmlElement, CXmlSerializingContext& serializingContext) const;
+    virtual void toXml(CXmlElement &xmlElement, CXmlSerializingContext &serializingContext) const;
 
     // CElement
     virtual std::string getKind() const;
+
 protected:
     // Content dumping
-    virtual void logValue(std::string& strValue, CErrorContext& errorContext) const;
+    std::string logValue(utility::ErrorContext &errorContext) const override;
+
 private:
     // Numerical
-    int32_t _iNumerical;
+    int32_t _iNumerical{0};
 };
-

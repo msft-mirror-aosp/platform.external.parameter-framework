@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (c) 2011-2014, Intel Corporation
  * All rights reserved.
  *
@@ -29,19 +29,22 @@
  */
 #pragma once
 
+#include "remote_processor_export.h"
+
 #include "Message.h"
 
-class CAnswerMessage : public CMessage
+class REMOTE_PROCESSOR_EXPORT CAnswerMessage : public CMessage
 {
 public:
-    CAnswerMessage(const std::string& strAnswer, bool bSuccess);
+    CAnswerMessage(const std::string &strAnswer, bool bSuccess);
     CAnswerMessage();
 
     // Answer
-    const std::string& getAnswer() const;
+    const std::string &getAnswer() const;
 
     // Status
     bool success() const;
+
 private:
     // Fill data to send
     virtual void fillDataToSend();
@@ -52,9 +55,8 @@ private:
     */
     virtual size_t getDataSize() const;
     // Answer
-    void setAnswer(const std::string& strAnswer);
+    void setAnswer(const std::string &strAnswer);
 
     // Answer
     std::string _strAnswer;
 };
-

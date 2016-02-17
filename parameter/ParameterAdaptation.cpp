@@ -28,13 +28,12 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "ParameterAdaptation.h"
-#include "Utility.h"
 
 #define base CElement
 
 using std::string;
 
-CParameterAdaptation::CParameterAdaptation(const string& strType) : base(strType), _iOffset(0)
+CParameterAdaptation::CParameterAdaptation(const string &strType) : base(strType)
 {
 }
 // CElement
@@ -50,7 +49,7 @@ int32_t CParameterAdaptation::getOffset() const
 }
 
 // Element properties
-void CParameterAdaptation::showProperties(string& strResult) const
+void CParameterAdaptation::showProperties(string &strResult) const
 {
     // Adaptation type
     strResult += " - Type: ";
@@ -59,22 +58,15 @@ void CParameterAdaptation::showProperties(string& strResult) const
 
     // Offset
     strResult += " - Offset: ";
-    strResult += CUtility::toString(_iOffset);
+    strResult += std::to_string(_iOffset);
     strResult += "\n";
 }
 
 // From IXmlSink
-bool CParameterAdaptation::fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& serializingContext)
+bool CParameterAdaptation::fromXml(const CXmlElement &xmlElement,
+                                   CXmlSerializingContext &serializingContext)
 {
-    // Get offset
-    if (xmlElement.hasAttribute("Offset")) {
-
-        _iOffset = xmlElement.getAttributeSignedInteger("Offset");
-
-    } else {
-        // Default
-        _iOffset = 0;
-    }
+    xmlElement.getAttribute("Offset", _iOffset);
 
     // Base
     return base::fromXml(xmlElement, serializingContext);

@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2015, Intel Corporation
+# Copyright (c) 2014-2016, Intel Corporation
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without modification,
@@ -27,20 +27,25 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 add_library(remote-processor SHARED
-        Socket.cpp
-        ListeningSocket.cpp
-        ConnectionSocket.cpp
         Message.cpp
         RequestMessage.cpp
         AnswerMessage.cpp
         RemoteProcessorServer.cpp
-        RemoteProcessorServerBuilder.cpp)
+        BackgroundRemoteProcessorServer.cpp)
+
+include(GenerateExportHeader)
+generate_export_header(remote-processor
+                       BASE_NAME remote_processor)
 
 set(CMAKE_THREAD_PREFER_PTHREAD 1)
 find_package(Threads REQUIRED)
 
-include_directories("${PROJECT_SOURCE_DIR}/utility")
+target_include_directories(remote-processor
+    # Symbol export macro header
+    PUBLIC "${CMAKE_CURRENT_BINARY_DIR}"
+    # TODO: separate remote-processor's includes in half (public/private)
+    PUBLIC .)
 
-target_link_libraries(remote-processor pfw_utility ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(remote-processor PRIVATE pfw_utility asio ${CMAKE_THREAD_LIBS_INIT})
 
-install(TARGETS remote-processor LIBRARY DESTINATION lib)
+install(TARGETS remote-processor LIBRARY DESTINATION lib RUNTIME DESTINATION bin)

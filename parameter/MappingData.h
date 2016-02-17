@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, Intel Corporation
+ * Copyright (c) 2011-2015, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -29,21 +29,25 @@
  */
 #pragma once
 
-#include "XmlSink.h"
 #include <string>
 #include <map>
 
-class CMappingData : public IXmlSink
+class CMappingData
 {
     typedef std::map<std::string, std::string>::const_iterator KeyToValueMapConstIterator;
-public:
-    CMappingData();
 
-    // From IXmlSink
-    virtual bool fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& serializingContext);
+public:
+    /** Initialize mapping data through a raw value
+     *
+     * @param[in] rawMapping the raw mapping data which has to be parsed.
+     *            This raw value is a succession of pair "key:value" separated with comma.
+     * @param[out] error description of the error if there is one, empty otherwise
+     * @return true on success, false otherwise
+     */
+    bool init(const std::string &rawMapping, std::string &error);
 
     // Query
-    bool getValue(const std::string& strkey, const std::string*& pStrValue) const;
+    bool getValue(const std::string &strkey, const std::string *&pStrValue) const;
 
     /**
      * Formats the mapping as a list of comma-space separated key:value pairs
@@ -53,7 +57,7 @@ public:
     std::string asString() const;
 
 private:
-    bool addValue(const std::string& strkey, const std::string& strValue);
+    bool addValue(const std::string &strkey, const std::string &strValue);
 
     std::map<std::string, std::string> _keyToValueMap;
 };

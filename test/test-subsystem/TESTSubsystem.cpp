@@ -40,18 +40,21 @@
 #define base CSubsystem
 
 // Directory for isAlive and NeedResync files
-const char* gacFwNamePropName = getenv("PFW_RESULT");
+const char *gacFwNamePropName = getenv("PFW_RESULT");
 
 // Implementation
-CTESTSubsystem::CTESTSubsystem(const std::string& strName) : base(strName)
+CTESTSubsystem::CTESTSubsystem(const std::string &strName, core::log::Logger &logger)
+    : base(strName, logger)
 {
     // Provide mapping keys to upper layer
     addContextMappingKey("Directory");
     addContextMappingKey("Log");
 
     // Provide creators to upper layer
-    addSubsystemObjectFactory(new TSubsystemObjectFactory<CTESTSubsystemBinary>("Binary", 1 << ETESTDirectory));
-    addSubsystemObjectFactory(new TSubsystemObjectFactory<CTESTSubsystemString>("String", 1 << ETESTDirectory));
+    addSubsystemObjectFactory(
+        new TSubsystemObjectFactory<CTESTSubsystemBinary>("Binary", 1 << ETESTDirectory));
+    addSubsystemObjectFactory(
+        new TSubsystemObjectFactory<CTESTSubsystemString>("String", 1 << ETESTDirectory));
 }
 
 // Susbsystem sanity health
@@ -87,7 +90,7 @@ bool CTESTSubsystem::needResync(bool bClear)
 }
 
 // Read boolean from file
-std::string CTESTSubsystem::read(const std::string& strFileName)
+std::string CTESTSubsystem::read(const std::string &strFileName)
 {
     std::ifstream file;
     std::string strContent;
@@ -100,7 +103,7 @@ std::string CTESTSubsystem::read(const std::string& strFileName)
 }
 
 // Write boolean to file
-void CTESTSubsystem::write(const std::string& strFileName, const std::string& strContent)
+void CTESTSubsystem::write(const std::string &strFileName, const std::string &strContent)
 {
     std::ofstream file;
 

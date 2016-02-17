@@ -1,4 +1,4 @@
-# Copyright (c) 2014, Intel Corporation
+# Copyright (c) 2014-2015, Intel Corporation
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without modification,
@@ -26,36 +26,47 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-add_library(xmlserializer SHARED
+add_library(xmlserializer STATIC
     XmlElement.cpp
     XmlSerializingContext.cpp
     XmlDocSource.cpp
     XmlMemoryDocSink.cpp
     XmlMemoryDocSource.cpp
-    XmlStreamDocSink.cpp)
+    XmlStreamDocSink.cpp
+    XmlUtil.cpp)
 
-include(FindLibXml2)
-if(NOT LIBXML2_FOUND)
-    message(SEND_ERROR "
-    libxml2 NOT found.  The parameter-framework wont compile.
-    Please install the development package (e.g. libxml2-dev on debian-based
-    Linux distributions).")
-else(NOT LIBXML2_FOUND)
-    # libxml2 has been found, but does it support XInclude ?
-    include(CheckLibraryExists)
-    check_library_exists(xml2 xmlXIncludeProcess "" XML2_XINCLUDE_SUPPORT)
-    if(NOT XML2_XINCLUDE_SUPPORT)
-        message(SEND_ERROR "
-    libxml2 has not been built with support for XInclude.  xmlserializer needs
-    that feature; please install a version of libxml2 supporting it.")
-    endif(NOT XML2_XINCLUDE_SUPPORT)
-endif(NOT LIBXML2_FOUND)
+set_target_properties(xmlserializer PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 
-include_directories(${LIBXML2_INCLUDE_DIR})
-target_link_libraries(xmlserializer ${LIBXML2_LIBRARIES})
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LIBXML2_DEFINITIONS}")
+find_package(LibXml2 REQUIRED)
 
-install(TARGETS xmlserializer LIBRARY DESTINATION lib)
+# libxml2 has been found, but does it support XInclude ?
+include(CMakePushCheckState)
+# Save the previous state of CMAKE_REQUIRED_* variables and empty them
+cmake_push_check_state()
+cmake_reset_check_state()
+include(CheckSymbolExists)
+set(CMAKE_REQUIRED_DEFINITIONS ${LIBXML2_DEFINITIONS})
+set(CMAKE_REQUIRED_INCLUDES ${LIBXML2_INCLUDE_DIR})
+# Check that the LIBXML_XINCLUDE_ENABLED macro is defined
+# This is the safest check, as it does not involve linking against anything
+# (which might fail for another reason than the lack of XInclude support)
+check_symbol_exists(LIBXML_XINCLUDE_ENABLED libxml/xmlversion.h XML2_XINCLUDE_SUPPORT)
+# Restore the previous state
+cmake_pop_check_state()
+if(NOT XML2_XINCLUDE_SUPPORT)
+    message(SEND_ERROR
+            "libxml2 has not been built with support for XInclude."
+            "xmlserializer needs that feature;"
+            "please install a version of libxml2 supporting it.")
+endif()
+
+target_include_directories(xmlserializer PUBLIC .)
+
+target_link_libraries(xmlserializer
+    PUBLIC pfw_utility # For NonCopyable and ErrorContext
+    PRIVATE LibXml2::libxml2)
+
+
 install(FILES
     XmlSink.h
     XmlSource.h

@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (c) 2011-2014, Intel Corporation
  * All rights reserved.
  *
@@ -28,7 +28,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "RequestMessage.h"
-#include "RemoteProcessorProtocol.h"
 #include <assert.h>
 #include <algorithm>
 #include <ctype.h>
@@ -37,9 +36,10 @@
 
 using std::string;
 
-const char* const CRequestMessage::gacDelimiters = " \t\n\v\f\r";
+const char *const CRequestMessage::gacDelimiters = " \t\n\v\f\r";
 
-CRequestMessage::CRequestMessage(const string& strCommand) : base(ECommandRequest), _strCommand(strCommand)
+CRequestMessage::CRequestMessage(const string &strCommand)
+    : base(MsgType::ECommandRequest), _strCommand(strCommand)
 {
 }
 
@@ -48,46 +48,50 @@ CRequestMessage::CRequestMessage()
 }
 
 // Command Name
-void CRequestMessage::setCommand(const string& strCommand)
+void CRequestMessage::setCommand(const string &strCommand)
 {
     _strCommand = trim(strCommand);
 }
 
-const string& CRequestMessage::getCommand() const
+const string &CRequestMessage::getCommand() const
 {
     return _strCommand;
 }
 
 // Arguments
-void CRequestMessage::addArgument(const string& strArgument)
+void CRequestMessage::addArgument(const string &strArgument)
 {
     _argumentVector.push_back(trim(strArgument));
 }
 
-uint32_t CRequestMessage::getArgumentCount() const
+size_t CRequestMessage::getArgumentCount() const
 {
     return _argumentVector.size();
 }
 
-const string& CRequestMessage::getArgument(uint32_t uiArgument) const
+const std::vector<string> &CRequestMessage::getArguments() const
 {
-    assert(uiArgument < _argumentVector.size());
-
-    return _argumentVector[uiArgument];
+    return _argumentVector;
 }
 
-const string CRequestMessage::packArguments(uint32_t uiStartArgument, uint32_t uiNbArguments) const
+const string &CRequestMessage::getArgument(size_t argument) const
+{
+    assert(argument < _argumentVector.size());
+
+    return _argumentVector[argument];
+}
+
+const string CRequestMessage::packArguments(size_t uiStartArgument, size_t uiNbArguments) const
 {
     string strPackedArguments;
 
     assert(uiStartArgument + uiNbArguments <= _argumentVector.size());
 
     // Pack arguments, separating them with a space
-    uint32_t uiArgument;
-
     bool bFirst = true;
 
-    for (uiArgument = uiStartArgument; uiArgument < uiStartArgument + uiNbArguments; uiArgument++) {
+    for (size_t argument = uiStartArgument; argument < uiStartArgument + uiNbArguments;
+         argument++) {
 
         if (!bFirst) {
 
@@ -97,7 +101,7 @@ const string CRequestMessage::packArguments(uint32_t uiStartArgument, uint32_t u
             bFirst = false;
         }
 
-        strPackedArguments += _argumentVector[uiArgument];
+        strPackedArguments += _argumentVector[argument];
     }
 
     return strPackedArguments;
@@ -110,11 +114,9 @@ void CRequestMessage::fillDataToSend()
     writeString(getCommand());
 
     // Arguments
-    uint32_t uiArgument;
+    for (size_t argument = 0; argument < getArgumentCount(); argument++) {
 
-    for (uiArgument = 0; uiArgument < getArgumentCount(); uiArgument++) {
-
-        writeString(getArgument(uiArgument));
+        writeString(getArgument(argument));
     }
 }
 
@@ -146,9 +148,7 @@ size_t CRequestMessage::getDataSize() const
     size_t uiSize = getStringSize(getCommand());
 
     // Arguments
-    uint32_t uiArgument;
-
-    for (uiArgument = 0; uiArgument < getArgumentCount(); uiArgument++) {
+    for (size_t uiArgument = 0; uiArgument < getArgumentCount(); uiArgument++) {
 
         uiSize += getStringSize(getArgument(uiArgument));
     }
@@ -156,12 +156,12 @@ size_t CRequestMessage::getDataSize() const
 }
 
 // Trim input string
-string CRequestMessage::trim(const string& strToTrim)
+string CRequestMessage::trim(const string &strToTrim)
 {
     // Trim string
     string strTrimmed = strToTrim;
 
-    strTrimmed.erase(strTrimmed.find_last_not_of(gacDelimiters) + 1 );
+    strTrimmed.erase(strTrimmed.find_last_not_of(gacDelimiters) + 1);
 
     strTrimmed.erase(0, strTrimmed.find_first_not_of(gacDelimiters));
 

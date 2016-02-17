@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, Intel Corporation
+ * Copyright (c) 2011-2015, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -35,21 +35,34 @@
 
 class CVirtualSyncer;
 
-class CVirtualSubsystem : public CSubsystem
+class CVirtualSubsystem final : public CSubsystem
 {
 public:
-    CVirtualSubsystem(const std::string& strName);
+    /**
+     * @param[in] strName subsystem name
+     * @param[in] logger the main logger of the application
+     */
+    CVirtualSubsystem(const std::string &strName, core::log::Logger &logger);
     virtual ~CVirtualSubsystem();
 
 protected:
     // Syncer
-    virtual ISyncer* getSyncer() const;
+    virtual ISyncer *getSyncer() const;
+
+    /**
+     * Fill Syncer Set From descendant nodes
+     *
+     * This functionality allows to collect the syncers when crawling down the
+     * parameter tree.
+     */
+    void fillSyncerSetFromDescendant(CSyncerSet &syncerSet) const override;
 
 private:
     // From IMapper
-    virtual bool mapBegin(CInstanceConfigurableElement* pInstanceConfigurableElement, bool& bKeepDiving, std::string& strError);
+    virtual bool mapBegin(CInstanceConfigurableElement *pInstanceConfigurableElement,
+                          bool &bKeepDiving, std::string &strError);
     virtual void mapEnd();
 
     // Subsystem level dummy syncer
-    CVirtualSyncer* _pVirtualSyncer;
+    CVirtualSyncer *_pVirtualSyncer;
 };

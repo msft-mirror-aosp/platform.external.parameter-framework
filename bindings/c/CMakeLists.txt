@@ -28,37 +28,29 @@
 
 add_library(cparameter SHARED ParameterFramework.cpp)
 
-include_directories("${PROJECT_SOURCE_DIR}/parameter/include")
+include(GenerateExportHeader)
+generate_export_header(cparameter)
 
 install(FILES ParameterFramework.h
+              "${CMAKE_CURRENT_BINARY_DIR}/cparameter_export.h"
         DESTINATION "include/parameter/c")
 
-target_link_libraries(cparameter parameter)
+target_link_libraries(cparameter PRIVATE parameter pfw_utility)
 
-install(TARGETS cparameter LIBRARY DESTINATION lib)
+target_include_directories(cparameter
+    # Fixme use an include folder
+    PUBLIC .
+    # Export symbol macro header
+    PUBLIC "${CMAKE_CURRENT_BINARY_DIR}")
+
+install(TARGETS cparameter LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
 
 if(BUILD_TESTING)
-    # Add catch unit test framework
-    # TODO Use gtest as it is the team recommendation
-    #      Unfortunately gtest is very hard to setup as not binary distributed
-    #      catch is only one header so it is very easy
-    # Catch can be downloaded from:
-    # https://raw.github.com/philsquared/Catch/master/single_include/catch.hpp
-    # Then append the download folder to the CMAKE_INCLUDE_PATH variable or
-    # copy it in a standard location (/usr/include on most linux distribution).
-    find_path(CATCH_HEADER catch.hpp)
-    include_directories(${CATCH_HEADER})
-    include_directories("${PROJECT_SOURCE_DIR}/utility")
-
     # Add unit test
     add_executable(cparameterUnitTest Test.cpp)
-    # Do not warn about passing a null pointer for arguments marked as requiring
-    # a non-null value by the "nonnull" function attribute.
-    # This is done as the unit tests check that invalid api use result in
-    # proper failure.
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nonnull")
 
-    target_link_libraries(cparameterUnitTest cparameter pfw_utility)
+    target_link_libraries(cparameterUnitTest PRIVATE catch cparameter tmpfile)
+
     add_test(NAME cparameterUnitTest
              COMMAND cparameterUnitTest)
 

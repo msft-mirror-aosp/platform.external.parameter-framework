@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, Intel Corporation
+ * Copyright (c) 2011-2015, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -31,11 +31,13 @@
 #include "MappingData.h"
 #include "Tokenizer.h"
 #include "InstanceConfigurableElement.h"
+#include "Utility.h"
+#include <list>
 #include <assert.h>
 
 #define base CElement
 
-CTypeElement::CTypeElement(const std::string& strName) : base(strName), _uiArrayLength(0), _pMappingData(NULL)
+CTypeElement::CTypeElement(const std::string &strName) : base(strName)
 {
 }
 
@@ -46,12 +48,12 @@ CTypeElement::~CTypeElement()
 
 bool CTypeElement::isScalar() const
 {
-    return !_uiArrayLength;
+    return !_arrayLength;
 }
 
-uint32_t CTypeElement::getArrayLength() const
+size_t CTypeElement::getArrayLength() const
 {
-    return _uiArrayLength;
+    return _arrayLength;
 }
 
 int CTypeElement::toPlainInteger(int iSizeOptimizedData) const
@@ -59,7 +61,7 @@ int CTypeElement::toPlainInteger(int iSizeOptimizedData) const
     return iSizeOptimizedData;
 }
 
-bool CTypeElement::getMappingData(const std::string& strKey, const std::string*& pStrValue) const
+bool CTypeElement::getMappingData(const std::string &strKey, const std::string *&pStrValue) const
 {
     if (_pMappingData) {
 
@@ -74,7 +76,7 @@ bool CTypeElement::hasMappingData() const
 }
 
 // Element properties
-void CTypeElement::showProperties(std::string& strResult) const
+void CTypeElement::showProperties(std::string &strResult) const
 {
     // The description attribute may be found in the type and not from instance.
     showDescriptionProperty(strResult);
@@ -83,7 +85,7 @@ void CTypeElement::showProperties(std::string& strResult) const
     // which have a common base Element)
 }
 
-void CTypeElement::populate(CElement* pElement) const
+void CTypeElement::populate(CElement *pElement) const
 {
     // Populate children
     size_t uiChild;
@@ -91,38 +93,40 @@ void CTypeElement::populate(CElement* pElement) const
 
     for (uiChild = 0; uiChild < uiNbChildren; uiChild++) {
 
-        const CTypeElement* pChildTypeElement = static_cast<const CTypeElement*>(getChild(uiChild));
+        const CTypeElement *pChildTypeElement =
+            static_cast<const CTypeElement *>(getChild(uiChild));
 
-        CInstanceConfigurableElement* pInstanceConfigurableChildElement = pChildTypeElement->instantiate();
+        CInstanceConfigurableElement *pInstanceConfigurableChildElement =
+            pChildTypeElement->instantiate();
 
         // Affiliate
         pElement->addChild(pInstanceConfigurableChildElement);
     }
 }
 
-bool CTypeElement::fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& serializingContext)
+bool CTypeElement::fromXml(const CXmlElement &xmlElement,
+                           CXmlSerializingContext &serializingContext)
 {
     // Array Length attribute
-    if (xmlElement.hasAttribute("ArrayLength")) {
-
-        _uiArrayLength = xmlElement.getAttributeInteger("ArrayLength");
-    } else {
-        _uiArrayLength = 0; // Scalar
-    }
+    xmlElement.getAttribute("ArrayLength", _arrayLength);
     // Manage mapping attribute
-    if (xmlElement.hasAttribute("Mapping")) {
+    std::string rawMapping;
+    if (xmlElement.getAttribute("Mapping", rawMapping) && !rawMapping.empty()) {
 
-        if (!getMappingData()->fromXml(xmlElement, serializingContext)) {
+        std::string error;
+        if (!getMappingData()->init(rawMapping, error)) {
 
+            serializingContext.setError("Invalid Mapping data from XML element '" +
+                                        xmlElement.getPath() + "': " + error);
             return false;
         }
     }
     return base::fromXml(xmlElement, serializingContext);
 }
 
-CInstanceConfigurableElement* CTypeElement::instantiate() const
+CInstanceConfigurableElement *CTypeElement::instantiate() const
 {
-    CInstanceConfigurableElement* pInstanceConfigurableElement = doInstantiate();
+    CInstanceConfigurableElement *pInstanceConfigurableElement = doInstantiate();
 
     // Populate
     populate(pInstanceConfigurableElement);
@@ -130,13 +134,37 @@ CInstanceConfigurableElement* CTypeElement::instantiate() const
     return pInstanceConfigurableElement;
 }
 
-CMappingData* CTypeElement::getMappingData()
+CMappingData *CTypeElement::getMappingData()
 {
     if (!_pMappingData) {
 
         _pMappingData = new CMappingData;
     }
     return _pMappingData;
+}
+
+std::string CTypeElement::getFormattedMapping(const CTypeElement *predecessor) const
+{
+    std::list<std::string> mappings;
+    std::string mapping;
+
+    // Try predecessor type first, then myself (in order to have higher-level
+    // mappings displayed first)
+    if (predecessor) {
+        mapping = predecessor->getFormattedMapping();
+        if (not mapping.empty()) {
+            mappings.push_back(mapping);
+        }
+    }
+
+    // Explicitly call the root implementation instead of calling it virtually
+    // (otherwise, it will infinitely recurse).
+    mapping = CTypeElement::getFormattedMapping();
+    if (not mapping.empty()) {
+        mappings.push_back(mapping);
+    }
+
+    return utility::asString(mappings, ", ");
 }
 
 std::string CTypeElement::getFormattedMapping() const
@@ -149,11 +177,11 @@ std::string CTypeElement::getFormattedMapping() const
 }
 
 // From IXmlSource
-void CTypeElement::toXml(CXmlElement& xmlElement, CXmlSerializingContext& serializingContext) const
+void CTypeElement::toXml(CXmlElement &xmlElement, CXmlSerializingContext &serializingContext) const
 {
     if (!isScalar()) {
 
-        xmlElement.setAttributeInteger("ArrayLength", getArrayLength());
+        xmlElement.setAttribute("ArrayLength", getArrayLength());
     }
 
     base::toXml(xmlElement, serializingContext);

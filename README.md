@@ -1,7 +1,8 @@
 # parameter-framework
 
 [![Build Status](https://travis-ci.org/01org/parameter-framework.svg?branch=master)](https://travis-ci.org/01org/parameter-framework)
-[![Coverage Status](https://coveralls.io/repos/01org/parameter-framework/badge.svg?branch=master)](https://coveralls.io/r/01org/parameter-framework)
+[![Windows Build Status](https://ci.appveyor.com/api/projects/status/ga24jp8tet0qimbu/branch/master)](https://ci.appveyor.com/project/parameter-framework/parameter-framework)
+[![Coverage Status](https://codecov.io/github/01org/parameter-framework/coverage.svg?branch=master)](https://codecov.io/github/01org/parameter-framework?branch=master)
 
 ## Introduction
 
@@ -63,19 +64,102 @@ See [the wiki on github](https://github.com/01org/parameter-framework/wiki).
 
 ## Compiling
 
+**You may take a look at `.travis.yml` and `appveyor.yml` for examples on how we
+build the Parameter Framework in the CI.** It will probably help if you have
+troubles building the Parameter Framework even after reading the following
+sections:
+
+### Dependencies
+
+In order to compile you'll need, at the very least:
+
+- CMake (v3.2.2 or later) (v3.3.0 or later on Windows);
+- A C/C++ compiler supporting C++11;
+- libxml2 headers and libraries (Provided by the `libxml2-dev` on debian-based
+distributions);
+
+If you want to use the remote command interface (`NETWORKING=ON` by default),
+you'll also need:
+
+- Standalone ASIO (1.10.6 or later) (Provided by `libasio-dev` on debian-based
+distributions) ASIO is C++ header-only ASynchronous-IO library.
+
+If you want to compile the *Python bindings* (`PYTHON_BINDINGS=ON` by default),
+you'll also need:
+
+- SWIG 2.0 (A binding generator);
+- Python2.7 development environment (Provided by `python2.7-dev` on debian-based
+distributions)
+
+If you want to *compile and run the tests* (`BUILD_TESTING=ON` by default),
+you'll also need:
+
+- Catch (Provided by `catch` on debian-based distributions). Catch is a
+single-header test framework - as such you may also download it directly
+[here](https://raw.githubusercontent.com/philsquared/Catch/master/single_include/catch.hpp);
+- Python2.7 (Provided by `python2.7` on debian-based distribution - it is
+preinstalled on most distributions).
+
+If you want to *build the code documentation* (`DOXYGEN=OFF` by default), you'll
+need `doxygen` and `graphviz`. This doc is already available to you - see the
+wiki.
+
+**To list all available configuration options, try** `cmake -L` (you may also
+filter-out lines starting with `CMAKE_`).
+
+### How-To
+
+If you are already familiar with CMake, you know what to do.
+
 Run `cmake .` then `make`.  You may then install libraries, headers and
 binaries with `make install`.  By default, they are installed under
 `/usr/local` on unix OSes; if you want to install them under a custom
 directory, you may do so by passing it to the `cmake .` command; e.g.
 
+    # Always use absolute paths in CMake "-D" options: you don't know where
+    # relative paths will be evaluated from.
     cmake -DCMAKE_INSTALL_PREFIX=/path/to/custom/install .
+
+If you want to provide your own dependencies (e.g. your own version of
+libxml2), you should pass the base paths as the `CMAKE_PREFIX_PATH` variable,
+e.g.:
+
+    cmake -DCMAKE_PREFIX_PATH='/path/to/dependency1/;/path/to/dependency2/'
+
+For more information on how to use `CMAKE_PREFIX_PATH`, see CMake's
+documentation.
 
 Also, CMake can build a project out-of-tree, which is the recommended method:
 
     mkdir /path/to/build/directory
     cd /path/to/build/directory
-    cmake /path/to/parameter-framework/sources
+    cmake /path/to/sources/of/parameter-framework
     make
 
-After an install you may want to run the parameter-framework tests with
-`make test`.
+After a build you may want to run the parameter-framework tests with
+`make test` or `ctest`.
+
+### Compiling on Windows
+
+The only supported compiler on Windows in Visual Studio 14 2015. The 2013
+version does not support some C++11 features.  When running CMake's
+configuration step (the first call to CMake) you must specify the build system
+you want to use, i.e. `-G Visual Studio 14 2015 Win64`. Again, you may refer to
+`appveyor.yml`.
+
+If you don't already have libxml2 headers/libraries and don't want to build them
+by yourself, we have a precompiled version for x86-64. *These are provided for
+reference and as a convenience for development purpose only; when making a
+final product, you should recompile the latest libxml2 release yourself.*
+
+Compiled with Visual Studio 12 2013:
+- [in debug configuration](https://01.org/sites/default/files/libxml2-x86_64-debug-3eaedba1b64180668fdab7ad2eba549586017bf3.zip)
+- [in release configuration](https://01.org/sites/default/files/libxml2-x86_64-3eaedba1b64180668fdab7ad2eba549586017bf3.zip)
+
+We have mirrored ASIO 1.10.6 [here](https://01.org/sites/default/files/asio-1.10.6.tar.gz).
+
+Once you have downloaded and uncompressed these two dependencies, add the
+following two entries to `CMAKE_PREFIX_PATH`:
+
+    /path/to/libxml2-x86_64/
+    /path/to/asio-1.10.6/

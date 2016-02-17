@@ -34,34 +34,39 @@
 #include "TypeElement.h"
 
 #include <string>
+#include <limits>
 
 class CParameterAccessContext;
 
 class CBitParameterType : public CTypeElement
 {
 public:
-    CBitParameterType(const std::string& strName);
+    CBitParameterType(const std::string &strName);
 
     // From IXmlSink
-    virtual bool fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& serializingContext);
+    virtual bool fromXml(const CXmlElement &xmlElement, CXmlSerializingContext &serializingContext);
 
     // From IXmlSource
-    virtual void toXml(CXmlElement& xmlElement, CXmlSerializingContext& serializingContext) const;
+    virtual void toXml(CXmlElement &xmlElement, CXmlSerializingContext &serializingContext) const;
     /// Conversion
     // String
-    bool toBlackboard(const std::string& strValue, uint64_t& uiValue, CParameterAccessContext& parameterAccessContext) const;
-    void fromBlackboard(std::string& strValue, const uint64_t& uiValue, CParameterAccessContext& parameterAccessContext) const;
+    bool toBlackboard(const std::string &strValue, uint64_t &uiValue,
+                      CParameterAccessContext &parameterAccessContext) const;
+    void fromBlackboard(std::string &strValue, const uint64_t &uiValue,
+                        CParameterAccessContext &parameterAccessContext) const;
     // Integer
-    bool toBlackboard(uint64_t uiUserValue, uint64_t& uiValue, CParameterAccessContext& parameterAccessContext) const;
-    void fromBlackboard(uint32_t& uiUserValue, uint64_t uiValue, CParameterAccessContext& parameterAccessContext) const;
+    bool toBlackboard(uint64_t uiUserValue, uint64_t &uiValue,
+                      CParameterAccessContext &parameterAccessContext) const;
+    void fromBlackboard(uint32_t &uiUserValue, uint64_t uiValue,
+                        CParameterAccessContext &parameterAccessContext) const;
     // Access from area configuration
     uint64_t merge(uint64_t uiOriginData, uint64_t uiNewData) const;
 
     // Bit Size
-    uint32_t getBitSize() const;
+    size_t getBitSize() const;
 
     // Element properties
-    virtual void showProperties(std::string& strResult) const;
+    virtual void showProperties(std::string &strResult) const;
 
     // CElement
     virtual std::string getKind() const;
@@ -72,10 +77,10 @@ public:
      *
      * @return position of the bit.
      */
-    uint32_t getBitPos() const { return _uiBitPos; }
+    size_t getBitPos() const { return _bitPos; }
 private:
     // Instantiation
-    virtual CInstanceConfigurableElement* doInstantiate() const;
+    virtual CInstanceConfigurableElement *doInstantiate() const;
     // Max encodable value
     uint64_t getMaxEncodableValue() const;
     // Biwise mask
@@ -84,9 +89,9 @@ private:
     bool isEncodable(uint64_t uiData) const;
 
     // Pos in bits
-    uint32_t _uiBitPos;
+    size_t _bitPos{0};
     // Size in bits
-    uint32_t _uiBitSize;
+    size_t _uiBitSize{0};
     // Max value
-    uint64_t _uiMax;
+    uint64_t _uiMax{std::numeric_limits<uint64_t>::max()};
 };

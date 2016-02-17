@@ -30,28 +30,24 @@
 #pragma once
 
 #include "ParameterMgrLoggerForward.h"
-#include "ParameterMgr.h"
+#include <log/ILogger.h>
+#include <NonCopyable.hpp>
 
 #include <string>
 
-/* Wrap a class to expose its logging [log(bool, string&)] capabilities
+/* Wrap a class to expose its logging [info, warning] capabilities
  * through ILogger. */
-template<class T>
-class CParameterMgrLogger : public CParameterMgr::ILogger
+template <class T>
+class CParameterMgrLogger : public core::log::ILogger, private utility::NonCopyable
 {
 public:
-    CParameterMgrLogger(T& parameterMgrConnector) :
-        _parameterMgrConnector(parameterMgrConnector)
-    {
-    }
+    CParameterMgrLogger(T &parameterMgrConnector) : _parameterMgrConnector(parameterMgrConnector) {}
 
-    virtual void log(bool bIsWarning, const std::string& strLog)
-    {
-        _parameterMgrConnector.doLog(bIsWarning, strLog);
-    }
+    virtual void info(const std::string &log) { _parameterMgrConnector.info(log); }
+
+    virtual void warning(const std::string &log) { _parameterMgrConnector.warning(log); }
 
 private:
     // Log destination
-    T& _parameterMgrConnector;
+    T &_parameterMgrConnector;
 };
-

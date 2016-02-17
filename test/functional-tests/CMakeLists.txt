@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2015, Intel Corporation
+# Copyright (c) 2015, Intel Corporation
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without modification,
@@ -26,35 +26,27 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-if (BUILD_TESTING)
-    find_program(python2 python2)
+if(BUILD_TESTING)
 
-    set(PFW_ROOT ${CMAKE_BINARY_DIR}/tmp/test-parameters)
-    set(PFW_RESULT ${PFW_ROOT}/result)
+    # TODO: create a libxml2 library to properly export those definition & include
+    #       so that client only have to link with libxml2
+    include_directories(include)
 
-    configure_file(
-        ${CMAKE_CURRENT_SOURCE_DIR}/xml/configuration/Structure/Test/TestSubsystem.xml.in
-        ${PFW_ROOT}/xml/configuration/Structure/Test/TestSubsystem.xml @ONLY)
-    configure_file(
-        ${CMAKE_CURRENT_SOURCE_DIR}/xml/configuration/Structure/Test/TestClass.xml
-        ${PFW_ROOT}/xml/configuration/Structure/Test/TestClass.xml
-        COPYONLY)
-    configure_file(
-        ${CMAKE_CURRENT_SOURCE_DIR}/xml/configuration/ParameterFrameworkConfiguration.xml
-        ${PFW_ROOT}/xml/configuration/ParameterFrameworkConfiguration.xml
-        COPYONLY)
-    configure_file(
-        ${CMAKE_CURRENT_SOURCE_DIR}/xml/configuration/Settings/Test/TestConfigurableDomains.xml
-        ${PFW_ROOT}/xml/configuration/Settings/Test/TestConfigurableDomains.xml
-        COPYONLY)
+    # Add unit test
+    add_executable(parameterFunctionalTest
+                   Basic.cpp
+                   FloatingPoint.cpp
+                   Handle.cpp
+                   AutoSync.cpp)
 
-    add_test(NAME functional-test
-             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-             COMMAND ${python2} ACTCampaignEngine.py)
+    find_package(LibXml2 REQUIRED)
+
+    target_link_libraries(parameterFunctionalTest
+                          PRIVATE parameter catch tmpfile LibXml2::libxml2 introspection-subsystem)
+
+    add_test(NAME parameterFunctionalTest
+             COMMAND parameterFunctionalTest)
 
     # Custom function defined in the top-level CMakeLists
-    set_test_env(functional-test)
-    set_property(TEST functional-test APPEND PROPERTY ENVIRONMENT
-                 PFW_ROOT=${PFW_ROOT}
-                 PFW_RESULT=${PFW_RESULT})
+    set_test_env(parameterFunctionalTest)
 endif()

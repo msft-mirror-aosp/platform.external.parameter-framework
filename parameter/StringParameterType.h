@@ -38,26 +38,27 @@
 class CStringParameterType : public CTypeElement
 {
 public:
-    CStringParameterType(const std::string& strName);
+    CStringParameterType(const std::string &strName);
 
     // Max length
-    uint32_t getMaxLength() const;
+    size_t getMaxLength() const;
 
     // From IXmlSink
-    virtual bool fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& serializingContext);
+    virtual bool fromXml(const CXmlElement &xmlElement, CXmlSerializingContext &serializingContext);
 
     // From IXmlSource
-    virtual void toXml(CXmlElement& xmlElement, CXmlSerializingContext& serializingContext) const;
+    virtual void toXml(CXmlElement &xmlElement, CXmlSerializingContext &serializingContext) const;
 
     // Element properties
-    virtual void showProperties(std::string& strResult) const;
+    virtual void showProperties(std::string &strResult) const;
 
     // CElement
     virtual std::string getKind() const;
+
 private:
     // Instantiation
-    virtual CInstanceConfigurableElement* doInstantiate() const;
+    virtual CInstanceConfigurableElement *doInstantiate() const;
 
     // Max length in bytes
-    uint32_t _uiMaxLength;
+    size_t _maxLength{0};
 };

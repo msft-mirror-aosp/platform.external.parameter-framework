@@ -33,17 +33,18 @@
 
 #define base CAreaConfiguration
 
-CBitwiseAreaConfiguration::CBitwiseAreaConfiguration(const CConfigurableElement *pConfigurableElement, const CSyncerSet *pSyncerSet)
-    : base(pConfigurableElement, pSyncerSet, static_cast<const CBitParameter*>(pConfigurableElement)->getBelongingBlockSize()),
-      _bBigEndian(pConfigurableElement->getBelongingSubsystem()->isBigEndian())
+CBitwiseAreaConfiguration::CBitwiseAreaConfiguration(
+    const CConfigurableElement *pConfigurableElement, const CSyncerSet *pSyncerSet)
+    : base(pConfigurableElement, pSyncerSet,
+           static_cast<const CBitParameter *>(pConfigurableElement)->getBelongingBlockSize())
 {
 }
 
 // Blackboard copies
-void CBitwiseAreaConfiguration::copyTo(CParameterBlackboard* pToBlackboard, uint32_t uiOffset) const
+void CBitwiseAreaConfiguration::copyTo(CParameterBlackboard *pToBlackboard, size_t offset) const
 {
     // Beware this code works on little endian architectures only!
-    const CBitParameter* pBitParameter = static_cast<const CBitParameter*>(_pConfigurableElement);
+    const CBitParameter *pBitParameter = static_cast<const CBitParameter *>(_pConfigurableElement);
 
     uint64_t uiSrcData = 0;
     uint64_t uiDstData = 0;
@@ -51,22 +52,22 @@ void CBitwiseAreaConfiguration::copyTo(CParameterBlackboard* pToBlackboard, uint
     /// Read/modify/write
 
     // Read dst blackboard
-    pToBlackboard->readInteger(&uiDstData, pBitParameter->getBelongingBlockSize(), uiOffset, _bBigEndian);
+    pToBlackboard->readInteger(&uiDstData, pBitParameter->getBelongingBlockSize(), offset);
 
     // Read src blackboard
-    _blackboard.readInteger(&uiSrcData, pBitParameter->getBelongingBlockSize(), 0, _bBigEndian);
+    _blackboard.readInteger(&uiSrcData, pBitParameter->getBelongingBlockSize(), 0);
 
     // Convert
     uiDstData = pBitParameter->merge(uiDstData, uiSrcData);
 
     // Write dst blackboard
-    pToBlackboard->writeInteger(&uiDstData, pBitParameter->getBelongingBlockSize(), uiOffset, _bBigEndian);
+    pToBlackboard->writeInteger(&uiDstData, pBitParameter->getBelongingBlockSize(), offset);
 }
 
-void CBitwiseAreaConfiguration::copyFrom(const CParameterBlackboard* pFromBlackboard, uint32_t uiOffset)
+void CBitwiseAreaConfiguration::copyFrom(const CParameterBlackboard *pFromBlackboard, size_t offset)
 {
     // Beware this code works on little endian architectures only!
-    const CBitParameter* pBitParameter = static_cast<const CBitParameter*>(_pConfigurableElement);
+    const CBitParameter *pBitParameter = static_cast<const CBitParameter *>(_pConfigurableElement);
 
     uint64_t uiSrcData = 0;
     uint64_t uiDstData = 0;
@@ -74,15 +75,14 @@ void CBitwiseAreaConfiguration::copyFrom(const CParameterBlackboard* pFromBlackb
     /// Read/modify/write
 
     // Read dst blackboard
-    _blackboard.readInteger(&uiDstData, pBitParameter->getBelongingBlockSize(), 0, _bBigEndian);
+    _blackboard.readInteger(&uiDstData, pBitParameter->getBelongingBlockSize(), 0);
 
     // Read src blackboard
-    pFromBlackboard->readInteger(&uiSrcData, pBitParameter->getBelongingBlockSize(), uiOffset, _bBigEndian);
+    pFromBlackboard->readInteger(&uiSrcData, pBitParameter->getBelongingBlockSize(), offset);
 
     // Convert
     uiDstData = pBitParameter->merge(uiDstData, uiSrcData);
 
     // Write dst blackboard
-    _blackboard.writeInteger(&uiDstData, pBitParameter->getBelongingBlockSize(), 0, _bBigEndian);
+    _blackboard.writeInteger(&uiDstData, pBitParameter->getBelongingBlockSize(), 0);
 }
-

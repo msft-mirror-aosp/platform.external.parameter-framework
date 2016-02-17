@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, Intel Corporation
+ * Copyright (c) 2011-2015, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -32,21 +32,13 @@
 #include "Utility.h"
 #include <assert.h>
 
-CMappingData::CMappingData()
+bool CMappingData::init(const std::string &rawMapping, std::string &error)
 {
-}
-
-bool CMappingData::fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& serializingContext)
-{
-    assert(xmlElement.hasAttribute("Mapping"));
-
-    std::string strMapping = xmlElement.getAttributeString("Mapping");
-
-    Tokenizer mappingTok(strMapping, ",");
+    Tokenizer mappingTok(rawMapping, ",");
 
     std::string strMappingElement;
 
-    while (!(strMappingElement = mappingTok.next()).empty()) {
+    for (const auto &strMappingElement : mappingTok.split()) {
 
         std::string::size_type iFistDelimiterOccurrence = strMappingElement.find_first_of(':');
 
@@ -66,12 +58,12 @@ bool CMappingData::fromXml(const CXmlElement& xmlElement, CXmlSerializingContext
 
             // Get mapping value
             strValue = strMappingElement.substr(iFistDelimiterOccurrence + 1);
-
         }
 
         if (!addValue(strKey, strValue)) {
 
-            serializingContext.setError("Duplicate Mapping data: Unable to process Mapping element key = " + strKey + ", value = " + strValue + " from XML element " + xmlElement.getPath());
+            error = "Unable to process Mapping element key = " + strKey + ", value = " + strValue +
+                    ": Duplicate Mapping data";
 
             return false;
         }
@@ -79,7 +71,7 @@ bool CMappingData::fromXml(const CXmlElement& xmlElement, CXmlSerializingContext
     return true;
 }
 
-bool CMappingData::getValue(const std::string& strkey, const std::string*& pStrValue) const
+bool CMappingData::getValue(const std::string &strkey, const std::string *&pStrValue) const
 {
     KeyToValueMapConstIterator it = _keyToValueMap.find(strkey);
 
@@ -94,14 +86,10 @@ bool CMappingData::getValue(const std::string& strkey, const std::string*& pStrV
 
 std::string CMappingData::asString() const
 {
-    std::string strValue;
-
-    CUtility::asString(_keyToValueMap, strValue, ", ", ":");
-
-    return strValue;
+    return utility::asString(_keyToValueMap, ", ", ":");
 }
 
-bool CMappingData::addValue(const std::string& strkey, const std::string& strValue)
+bool CMappingData::addValue(const std::string &strkey, const std::string &strValue)
 {
     if (_keyToValueMap.find(strkey) != _keyToValueMap.end()) {
 
@@ -111,4 +99,3 @@ bool CMappingData::addValue(const std::string& strkey, const std::string& strVal
 
     return true;
 }
-

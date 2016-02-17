@@ -26,12 +26,12 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-if (BUILD_TESTING)
-    find_program(python2 python2)
+if(BUILD_TESTING AND PYTHON_BINDINGS)
+    find_package(PythonInterp 2.7 REQUIRED)
 
     add_test(NAME fix_point_parameter
              WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-             COMMAND ${python2} Main.py)
+             COMMAND ${PYTHON_EXECUTABLE} Main.py)
 
     # Custom function defined in the top-level CMakeLists
     set_test_env(fix_point_parameter)

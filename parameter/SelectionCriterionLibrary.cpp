@@ -31,19 +31,15 @@
 
 #define base CElement
 
-CSelectionCriterionLibrary::CSelectionCriterionLibrary()
-{
-}
-
 std::string CSelectionCriterionLibrary::getKind() const
 {
     return "SelectionCriterionLibrary";
 }
 
 // Type creation
-CSelectionCriterionType* CSelectionCriterionLibrary::createSelectionCriterionType(bool bIsInclusive)
+CSelectionCriterionType *CSelectionCriterionLibrary::createSelectionCriterionType(bool bIsInclusive)
 {
-    CSelectionCriterionType* pSelectionCriterionType = new CSelectionCriterionType(bIsInclusive);
+    CSelectionCriterionType *pSelectionCriterionType = new CSelectionCriterionType(bIsInclusive);
 
     addChild(pSelectionCriterionType);
 

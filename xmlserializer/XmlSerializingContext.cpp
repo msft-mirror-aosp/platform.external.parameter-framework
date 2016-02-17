@@ -1,5 +1,5 @@
-/* 
- * Copyright (c) 2011-2014, Intel Corporation
+/*
+ * Copyright (c) 2011-2015, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -28,23 +28,39 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "XmlSerializingContext.h"
+#include <libxml/xmlerror.h>
+#include <cstdio>
 
-CXmlSerializingContext::CXmlSerializingContext(std::string& strError) : _strError(strError)
+CXmlSerializingContext::CXmlSerializingContext(std::string &strError)
+    : utility::ErrorContext(strError)
 {
+    xmlSetStructuredErrorFunc(this, structuredErrorHandler);
 }
 
-// Error
-void CXmlSerializingContext::setError(const std::string& strError)
+CXmlSerializingContext::~CXmlSerializingContext()
 {
-    _strError = strError;
+    // TODO: restore the previous handler
+    xmlSetStructuredErrorFunc(NULL, NULL);
+    prependToError(_strXmlError);
 }
 
-void CXmlSerializingContext::appendLineToError(const std::string& strAppend)
+void CXmlSerializingContext::appendLineToError(const std::string &strAppend)
 {
-    _strError += "\n" + strAppend;
+    appendToError("\n" + strAppend);
 }
 
-const std::string& CXmlSerializingContext::getError() const
+/** XML error handler
+  *
+  * @param[in] userData pointer to the serializing context
+  * @param[in] error the xml error
+  *
+  */
+void CXmlSerializingContext::structuredErrorHandler(void *userData, xmlErrorPtr error)
 {
-    return _strError;
+    CXmlSerializingContext *self = static_cast<CXmlSerializingContext *>(userData);
+
+    std::string filename = (error->file != NULL) ? error->file : "(user input)";
+    // xmlErrorPtr->int2 contains the column; see xmlerror.h
+    self->_strXmlError += filename + ":" + std::to_string(error->line) + ":" +
+                          std::to_string(error->int2) + ": " + error->message;
 }

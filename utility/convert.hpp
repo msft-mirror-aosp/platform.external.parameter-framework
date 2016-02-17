@@ -35,34 +35,92 @@
 #include <string>
 #include <stdint.h>
 #include <cmath>
+#include <type_traits>
 
 /* details namespace is here to hide implementation details to header end user. It
  * is NOT intended to be used outside. */
 namespace details
 {
 
-/** Helper class to limit instantiation of templates */
-template<typename T>
-struct ConvertionAllowed;
-
 /* List of allowed types for conversion */
-template<> struct ConvertionAllowed<bool> {};
-template<> struct ConvertionAllowed<uint64_t> {};
-template<> struct ConvertionAllowed<int64_t> {};
-template<> struct ConvertionAllowed<uint32_t> {};
-template<> struct ConvertionAllowed<int32_t> {};
-template<> struct ConvertionAllowed<uint16_t> {};
-template<> struct ConvertionAllowed<int16_t> {};
-template<> struct ConvertionAllowed<float> {};
-template<> struct ConvertionAllowed<double> {};
+template <typename T>
+struct ConvertionAllowed : std::false_type
+{
+};
+template <>
+struct ConvertionAllowed<bool> : std::true_type
+{
+};
+template <>
+struct ConvertionAllowed<long long> : std::true_type
+{
+};
+template <>
+struct ConvertionAllowed<unsigned long long> : std::true_type
+{
+};
+template <>
+struct ConvertionAllowed<long> : std::true_type
+{
+};
+template <>
+struct ConvertionAllowed<unsigned long> : std::true_type
+{
+};
+template <>
+struct ConvertionAllowed<int> : std::true_type
+{
+};
+template <>
+struct ConvertionAllowed<unsigned int> : std::true_type
+{
+};
+template <>
+struct ConvertionAllowed<short> : std::true_type
+{
+};
+template <>
+struct ConvertionAllowed<unsigned short> : std::true_type
+{
+};
+template <>
+struct ConvertionAllowed<unsigned char> : std::true_type
+{
+};
+template <>
+struct ConvertionAllowed<signed char> : std::true_type
+{
+};
+template <>
+struct ConvertionAllowed<float> : std::true_type
+{
+};
+template <>
+struct ConvertionAllowed<double> : std::true_type
+{
+};
 
-template<typename T>
+/* Allow chars and unsigned chars to be converted via integers */
+template <typename T, typename Via>
+struct ConvertionAllowedVia : std::false_type
+{
+};
+template <>
+struct ConvertionAllowedVia<unsigned char, unsigned int> : std::true_type
+{
+};
+template <>
+struct ConvertionAllowedVia<signed char, int> : std::true_type
+{
+};
+
+template <typename T>
 static inline bool convertTo(const std::string &str, T &result)
 {
     /* Check that conversion to that type is allowed.
      * If this fails, this means that this template was not intended to be used
      * with this type, thus that the result is undefined. */
-    ConvertionAllowed<T>();
+    static_assert(ConvertionAllowed<T>::value, "convertTo does not support this conversion");
 
     if (str.find_first_of(std::string("\r\n\t\v ")) != std::string::npos) {
         return false;
@@ -71,8 +129,7 @@ static inline bool convertTo(const std::string &str, T &result)
     /* Check for a '-' in string. If type is unsigned and a - is found, the
      * parsing fails. This is made necessary because "-1" is read as 65535 for
      * uint16_t, for example */
-    if (str.find("-") != std::string::npos
-        && !std::numeric_limits<T>::is_signed) {
+    if (str.find("-") != std::string::npos && !std::numeric_limits<T>::is_signed) {
         return false;
     }
 
@@ -83,8 +140,7 @@ static inline bool convertTo(const std::string &str, T &result)
     if (str.substr(0, 2) == "0x") {
         if (std::numeric_limits<T>::is_integer) {
             ss >> std::hex >> result;
-        }
-        else {
+        } else {
             /* Conversion undefined for non integers */
             return false;
         }
@@ -93,6 +149,31 @@ static inline bool convertTo(const std::string &str, T &result)
     }
 
     return ss.eof() && !ss.fail() && !ss.bad();
+}
+
+template <typename T, typename Via>
+static inline bool convertToVia(const std::string &str, T &result)
+{
+    /* Check that conversion to that type is allowed.
+     * If this fails, this means that this template was not intended to be used
+     * with this type, thus that the result is undefined. */
+    static_assert(ConvertionAllowedVia<T, Via>::value,
+                  "convertToVia does not support this conversion");
+
+    /* We want to override the behaviour of convertTo<T> with that of
+     * convertTo<Via> and then safely cast the result into a T. */
+    Via res;
+
+    if (!convertTo<Via>(str, res)) {
+        return false;
+    }
+
+    if ((res > std::numeric_limits<T>::max()) or (res < std::numeric_limits<T>::min())) {
+        return false;
+    }
+
+    result = static_cast<T>(res);
+    return true;
 }
 } // namespace details
 
@@ -112,43 +193,44 @@ static inline bool convertTo(const std::string &str, T &result)
  *
  * @return true if conversion was successful, false otherwise.
  */
-template<typename T>
+template <typename T>
 static inline bool convertTo(const std::string &str, T &result)
 {
     return details::convertTo<T>(str, result);
 }
 
-/**
- * Specialization for int16_t of convertTo template function.
+/** Specialization for unsigned char of convertTo template function.
  *
  * This function follows the same paradigm than it's generic version.
  *
- * The specific implementation is made necessary because the stlport version of
- * string streams is bugged and does not fail when giving overflowed values.
- * This specialisation can be safely removed when stlport behaviour is fixed.
+ * The generic version was converting char as it was a character
+ * (unsigned char is an alias to unsigned char on most compiler).
+ * Thus converting "1" would return 49 ie '1'.
+ * As convertTo is thought as an _numerical_ convertion tool
+ * (contrary to boost::lexical_cast for example),
+ * forbid considering the input as a character and consider unsigned char
+ * (aka unsigned char) as a number exclusively.
  *
  * @param[in]  str    the string to parse.
  * @param[out] result reference to object where to store the result.
  *
  * @return true if conversion was successful, false otherwise.
  */
-template<>
-inline bool convertTo<int16_t>(const std::string &str, int16_t &result)
+template <>
+inline bool convertTo<unsigned char>(const std::string &str, unsigned char &result)
 {
-    int64_t res;
-
-    if (!convertTo<int64_t>(str, res)) {
-        return false;
-    }
-
-    if (res > std::numeric_limits<int16_t>::max() || res < std::numeric_limits<int16_t>::min()) {
-        return false;
-    }
-
-    result = static_cast<int16_t>(res);
-    return true;
+    return details::convertToVia<unsigned char, unsigned int>(str, result);
 }
 
+/** Specialization for signed char of convertTo template function.
+ *
+ * @see convertTo<unsigned char>
+ */
+template <>
+inline bool convertTo<signed char>(const std::string &str, signed char &result)
+{
+    return details::convertToVia<signed char, int>(str, result);
+}
 /**
  * Specialization for float of convertTo template function.
  *
@@ -164,15 +246,14 @@ inline bool convertTo<int16_t>(const std::string &str, int16_t &result)
  *
  * @return true if conversion was successful, false otherwise.
  */
-template<>
+template <>
 inline bool convertTo<float>(const std::string &str, float &result)
 {
     if (!details::convertTo(str, result)) {
         return false;
     }
 
-    if (std::abs(result) == std::numeric_limits<float>::infinity() ||
-        result == std::numeric_limits<float>::quiet_NaN()) {
+    if (!std::isfinite(result)) {
         return false;
     }
 
@@ -194,15 +275,14 @@ inline bool convertTo<float>(const std::string &str, float &result)
  *
  * @return true if conversion was successful, false otherwise.
  */
-template<>
+template <>
 inline bool convertTo<double>(const std::string &str, double &result)
 {
     if (!details::convertTo(str, result)) {
         return false;
     }
 
-    if (std::abs(result) == std::numeric_limits<double>::infinity() ||
-        result == std::numeric_limits<double>::quiet_NaN()) {
+    if (!std::isfinite(result)) {
         return false;
     }
 
@@ -226,7 +306,7 @@ inline bool convertTo<double>(const std::string &str, double &result)
  *
  * @return true if conversion was successful, false otherwise.
  */
-template<>
+template <>
 inline bool convertTo<bool>(const std::string &str, bool &result)
 {
     if (str == "0" || str == "FALSE" || str == "false") {

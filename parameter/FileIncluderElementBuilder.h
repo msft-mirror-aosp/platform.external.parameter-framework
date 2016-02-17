@@ -41,17 +41,19 @@
 class CFileIncluderElementBuilder : public CElementBuilder
 {
 public:
-    CFileIncluderElementBuilder(bool bValidateWithSchemas) :
-        CElementBuilder(),
-        _bValidateWithSchemas(bValidateWithSchemas)
-    {}
+    CFileIncluderElementBuilder(bool bValidateWithSchemas, const std::string &schemaBaseUri)
+        : CElementBuilder(), _bValidateWithSchemas(bValidateWithSchemas),
+          _schemaBaseUri(schemaBaseUri)
+    {
+    }
 
     virtual CElement *createElement(const CXmlElement &xmlElement) const
     {
-        return new CXmlFileIncluderElement(xmlElement.getNameAttribute(),
-                                           xmlElement.getType(), _bValidateWithSchemas);
+        return new CXmlFileIncluderElement(xmlElement.getNameAttribute(), xmlElement.getType(),
+                                           _bValidateWithSchemas, _schemaBaseUri);
     }
 
 private:
     bool _bValidateWithSchemas;
+    const std::string _schemaBaseUri;
 };

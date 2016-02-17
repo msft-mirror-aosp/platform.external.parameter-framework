@@ -35,7 +35,7 @@
 
 using std::string;
 
-CBitParameterBlockType::CBitParameterBlockType(const string& strName) : base(strName), _uiSize(0)
+CBitParameterBlockType::CBitParameterBlockType(const string &strName) : base(strName)
 {
 }
 
@@ -50,32 +50,35 @@ bool CBitParameterBlockType::childrenAreDynamic() const
 }
 
 // Size
-uint32_t CBitParameterBlockType::getSize() const
+size_t CBitParameterBlockType::getSize() const
 {
-    return _uiSize;
+    return _size;
 }
 
 // From IXmlSink
-bool CBitParameterBlockType::fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& serializingContext)
+bool CBitParameterBlockType::fromXml(const CXmlElement &xmlElement,
+                                     CXmlSerializingContext &serializingContext)
 {
     // Size
-    _uiSize = xmlElement.getAttributeInteger("Size") / 8;
+    xmlElement.getAttribute("Size", _size);
+    _size /= 8;
 
     // Base
     return base::fromXml(xmlElement, serializingContext);
 }
 
 // Instantiation
-CInstanceConfigurableElement* CBitParameterBlockType::doInstantiate() const
+CInstanceConfigurableElement *CBitParameterBlockType::doInstantiate() const
 {
     return new CBitParameterBlock(getName(), this);
 }
 
 // From IXmlSource
-void CBitParameterBlockType::toXml(CXmlElement& xmlElement, CXmlSerializingContext& serializingContext) const
+void CBitParameterBlockType::toXml(CXmlElement &xmlElement,
+                                   CXmlSerializingContext &serializingContext) const
 {
     // Size
-    xmlElement.setAttributeString("Size", CUtility::toString(_uiSize * 8));
+    xmlElement.setAttribute("Size", _size * 8);
 
     base::toXml(xmlElement, serializingContext);
 }

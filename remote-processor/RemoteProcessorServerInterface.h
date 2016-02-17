@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (c) 2011-2015, Intel Corporation
  * All rights reserved.
  *
@@ -36,8 +36,7 @@ class IRemoteProcessorServerInterface
 {
 public:
     virtual bool start(std::string &strError) = 0;
-    virtual void stop() = 0;
-    virtual bool isStarted() const = 0;
+    virtual bool stop() = 0;
 
     /* FIXME this was missing but is explicitly called */
     virtual ~IRemoteProcessorServerInterface() {}

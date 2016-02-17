@@ -35,14 +35,7 @@
 using std::string;
 
 // Types
-const char* CCompoundRule::_apcTypes[2] = {
-    "Any",
-    "All"
-};
-
-CCompoundRule::CCompoundRule() : _bTypeAll(false)
-{
-}
+const char *CCompoundRule::_apcTypes[2] = {"Any", "All"};
 
 // Class kind
 string CCompoundRule::getKind() const
@@ -57,26 +50,22 @@ bool CCompoundRule::childrenAreDynamic() const
 }
 
 // Content dumping
-void CCompoundRule::logValue(string& strValue, CErrorContext& errorContext) const
+string CCompoundRule::logValue(utility::ErrorContext & /*ctx*/) const
 {
-    (void)errorContext;
-
     // Type
-    strValue = _apcTypes[_bTypeAll];
+    return _apcTypes[_bTypeAll];
 }
 
 // Parse
-bool CCompoundRule::parse(CRuleParser& ruleParser, string& strError)
+bool CCompoundRule::parse(CRuleParser &ruleParser, string &strError)
 {
     // Get rule type
-    uint32_t uiType;
+    for (size_t typeIndex = 0; typeIndex < 2; typeIndex++) {
 
-    for (uiType = 0;  uiType < 2; uiType++) {
-
-        if (ruleParser.getType() == _apcTypes[uiType]) {
+        if (ruleParser.getType() == _apcTypes[typeIndex]) {
 
             // Set type
-            _bTypeAll = uiType != 0;
+            _bTypeAll = typeIndex != 0;
 
             return true;
         }
@@ -90,10 +79,9 @@ bool CCompoundRule::parse(CRuleParser& ruleParser, string& strError)
 }
 
 // Dump
-void CCompoundRule::dump(string& strResult) const
+string CCompoundRule::dump() const
 {
-    strResult += _apcTypes[_bTypeAll];
-    strResult += "{";
+    string output = string(_apcTypes[_bTypeAll]) + "{";
 
     // Children
     size_t uiChild;
@@ -104,18 +92,19 @@ void CCompoundRule::dump(string& strResult) const
 
         if (!bFirst) {
 
-            strResult += ", ";
+            output += ", ";
         }
 
         // Dump inner rule
-        const CRule* pRule = static_cast<const CRule*>(getChild(uiChild));
+        const CRule *pRule = static_cast<const CRule *>(getChild(uiChild));
 
-        pRule->dump(strResult);
+        output += pRule->dump();
 
         bFirst = false;
     }
 
-    strResult += "}";
+    output += "}";
+    return output;
 }
 
 // Rule check
@@ -126,7 +115,7 @@ bool CCompoundRule::matches() const
 
     for (uiChild = 0; uiChild < uiNbChildren; uiChild++) {
 
-        const CRule* pRule = static_cast<const CRule*>(getChild(uiChild));
+        const CRule *pRule = static_cast<const CRule *>(getChild(uiChild));
 
         if (pRule->matches() ^ _bTypeAll) {
 
@@ -137,20 +126,23 @@ bool CCompoundRule::matches() const
 }
 
 // From IXmlSink
-bool CCompoundRule::fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& serializingContext)
+bool CCompoundRule::fromXml(const CXmlElement &xmlElement,
+                            CXmlSerializingContext &serializingContext)
 {
     // Get type
-    _bTypeAll = xmlElement.getAttributeBoolean("Type", _apcTypes[true]);
+    string strType;
+    xmlElement.getAttribute("Type", strType);
+    _bTypeAll = strType == _apcTypes[true];
 
     // Base
     return base::fromXml(xmlElement, serializingContext);
 }
 
 // From IXmlSource
-void CCompoundRule::toXml(CXmlElement& xmlElement, CXmlSerializingContext& serializingContext) const
+void CCompoundRule::toXml(CXmlElement &xmlElement, CXmlSerializingContext &serializingContext) const
 {
     // Set type
-    xmlElement.setAttributeString("Type", _apcTypes[_bTypeAll]);
+    xmlElement.setAttribute("Type", _apcTypes[_bTypeAll]);
 
     // Base
     base::toXml(xmlElement, serializingContext);

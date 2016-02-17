@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, Intel Corporation
+ * Copyright (c) 2011-2015, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -32,53 +32,42 @@
 #include "XmlMemoryDocSink.h"
 #include "XmlElementSerializingContext.h"
 #include "ElementLibrary.h"
-#include "AutoLog.h"
 #include <assert.h>
 #include <fstream>
 
 #define base CKindElement
-CXmlFileIncluderElement::CXmlFileIncluderElement(const std::string& strName,
-                                                 const std::string& strKind,
-                                                 bool bValidateWithSchemas)
-    : base(strName, strKind), _bValidateSchemasOnStart(bValidateWithSchemas)
+CXmlFileIncluderElement::CXmlFileIncluderElement(const std::string &strName,
+                                                 const std::string &strKind,
+                                                 bool bValidateWithSchemas,
+                                                 const std::string &schemaBaseUri)
+    : base(strName, strKind), _bValidateSchemasOnStart(bValidateWithSchemas),
+      _schemaBaseUri(schemaBaseUri)
 {
 }
 
 // From IXmlSink
-bool CXmlFileIncluderElement::fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& serializingContext)
+bool CXmlFileIncluderElement::fromXml(const CXmlElement &xmlElement,
+                                      CXmlSerializingContext &serializingContext)
 {
     // Context
-    CXmlElementSerializingContext& elementSerializingContext = static_cast<CXmlElementSerializingContext&>(serializingContext);
+    CXmlElementSerializingContext &elementSerializingContext =
+        static_cast<CXmlElementSerializingContext &>(serializingContext);
 
     // Parse included document
-    std::string strPath = xmlElement.getAttributeString("Path");
-
-    // Relative path?
-    if (strPath[0] != '/') {
-
-        strPath = elementSerializingContext.getXmlFolder() + "/" + strPath;
-    }
+    std::string strPath;
+    xmlElement.getAttribute("Path", strPath);
+    strPath = CXmlDocSource::mkUri(elementSerializingContext.getXmlUri(), strPath);
 
     // Instantiate parser
     std::string strIncludedElementType = getIncludedElementType();
     {
-        // Open a log section titled with loading file path
-        CAutoLog autolog(this, "Loading " + strPath);
+        _xmlDoc *doc = CXmlDocSource::mkXmlDoc(strPath, true, true, elementSerializingContext);
 
-        // Use a doc source that load data from a file
-        std::string strPathToXsdFile = elementSerializingContext.getXmlSchemaPathFolder() + "/" +
-                               strIncludedElementType + ".xsd";
+        CXmlDocSource docSource(doc, _bValidateSchemasOnStart, strIncludedElementType);
 
-        std::string xmlErrorMsg;
-        _xmlDoc *doc = CXmlDocSource::mkXmlDoc(strPath, true, true, xmlErrorMsg);
-        if (doc == NULL) {
-            elementSerializingContext.setError(xmlErrorMsg);
-            return false;
+        if (not _schemaBaseUri.empty()) {
+            docSource.setSchemaBaseUri(_schemaBaseUri);
         }
-
-        CXmlDocSource docSource(doc, _bValidateSchemasOnStart,
-                                strPathToXsdFile,
-                                strIncludedElementType);
 
         if (!docSource.isParsable()) {
 
@@ -93,7 +82,8 @@ bool CXmlFileIncluderElement::fromXml(const CXmlElement& xmlElement, CXmlSeriali
         docSource.getRootElement(childElement);
 
         // Create child element
-        CElement* pChild = elementSerializingContext.getElementLibrary()->createElement(childElement);
+        CElement *pChild =
+            elementSerializingContext.getElementLibrary()->createElement(childElement);
 
         if (pChild) {
 
@@ -101,7 +91,8 @@ bool CXmlFileIncluderElement::fromXml(const CXmlElement& xmlElement, CXmlSeriali
             getParent()->addChild(pChild);
         } else {
 
-            elementSerializingContext.setError("Unable to create XML element " + childElement.getPath());
+            elementSerializingContext.setError("Unable to create XML element " +
+                                               childElement.getPath());
 
             return false;
         }

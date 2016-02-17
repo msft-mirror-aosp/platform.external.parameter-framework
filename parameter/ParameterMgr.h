@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, Intel Corporation
+ * Copyright (c) 2011-2016, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -29,10 +29,9 @@
  */
 #pragma once
 
-#include <pthread.h>
+#include <mutex>
 #include <map>
 #include <vector>
-#include <list>
 #include "RemoteCommandHandlerTemplate.h"
 #include "PathNavigator.h"
 #include "SelectionCriterionType.h"
@@ -41,17 +40,21 @@
 #include "XmlDocSink.h"
 #include "XmlDocSource.h"
 #include "XmlDomainExportContext.h"
+#include "Results.h"
+#include "ElementHandle.h"
+#include <log/LogWrapper.h>
+#include <log/Context.h>
 
-#include <string>
-#include <ostream>
 #include <istream>
+#include <memory>
+#include <ostream>
+#include <string>
 
 class CElementLibrarySet;
 class CSubsystemLibrary;
 class CSystemClass;
 class CSelectionCriteria;
 class CParameterFrameworkConfiguration;
-class CSystemClassConfiguration;
 class CParameterBlackboard;
 class CConfigurableDomains;
 class IRemoteProcessorServerInterface;
@@ -62,55 +65,27 @@ class CConfigurableElement;
 
 class CParameterMgr : private CElement
 {
-    enum ChildElement {
+    enum ChildElement
+    {
         EFrameworkConfiguration,
         ESelectionCriteria,
         ESystemClass,
         EConfigurableDomains
     };
-    enum ElementLibrary {
+    enum ElementLibrary
+    {
         EFrameworkConfigurationLibrary,
         EParameterCreationLibrary,
         EParameterConfigurationLibrary
     };
 
-    // Remote command parsers
-    typedef TRemoteCommandHandlerTemplate<CParameterMgr> CCommandHandler;
-
-    typedef CCommandHandler::CommandStatus (CParameterMgr::*RemoteCommandParser)(const IRemoteCommand& remoteCommand, std::string& strResult);
-
-    // Parser descriptions
-    struct SRemoteCommandParserItem
-    {
-        const char* _pcCommandName;
-        CParameterMgr::RemoteCommandParser _pfnParser;
-        uint32_t _uiMinArgumentCount;
-        const char* _pcHelp;
-        const char* _pcDescription;
-    };
-    // Version
-    static const uint32_t guiEditionMajor = 2;
-    static const uint32_t guiEditionMinor = 6;
-    static const uint32_t guiRevision = 0;
-
     // Parameter handle friendship
-    friend class CParameterHandle;
+    friend class ElementHandle;
+
 public:
-    // Logger interface
-    class ILogger
-    {
-    public:
-        virtual void log(bool bIsWarning, const std::string& strLog) = 0;
-    protected:
-        virtual ~ILogger() {}
-    };
-
     // Construction
-    CParameterMgr(const std::string& strConfigurationFilePath);
+    CParameterMgr(const std::string &strConfigurationFilePath, core::log::ILogger &logger);
     virtual ~CParameterMgr();
-
-    // Logging
-    void setLogger(ILogger* pLogger);
 
     /** Load plugins, structures and settings from the config file given.
       *
@@ -119,19 +94,32 @@ public:
       *
       * @return true if no error occurred, false otherwise.
       */
-    bool load(std::string& strError);
+    bool load(std::string &strError);
+
+    // Remote command parsers
+    using CommandHandler = std::unique_ptr<TRemoteCommandHandlerTemplate<CParameterMgr>>;
+
+    /** Create and return a command handler for this ParameterMgr instance
+     *
+     * @returns a Command Handler
+     */
+    CommandHandler createCommandHandler();
 
     // Selection Criteria
-    CSelectionCriterionType* createSelectionCriterionType(bool bIsInclusive);
-    CSelectionCriterion* createSelectionCriterion(const std::string& strName, const CSelectionCriterionType* pSelectionCriterionType);
+    CSelectionCriterionType *createSelectionCriterionType(bool bIsInclusive);
+    CSelectionCriterion *createSelectionCriterion(
+        const std::string &strName, const CSelectionCriterionType *pSelectionCriterionType);
     // Selection criterion retrieval
-    CSelectionCriterion* getSelectionCriterion(const std::string& strName);
+    CSelectionCriterion *getSelectionCriterion(const std::string &strName);
 
     // Configuration application
     void applyConfigurations();
 
-    /**
-     * Returns the CConfigurableElement corresponding to the path given in argument.
+    /** const version of getConfigurableElement */
+    const CConfigurableElement *getConfigurableElement(const std::string &strPath,
+                                                       std::string &strError) const;
+
+    /** Returns the CConfigurableElement corresponding to the path given in argument.
      *
      * @param[in] strPath A std::string representing a path to an element.
      * @param[out] strError Error message
@@ -139,10 +127,22 @@ public:
      * @return A const pointer to the corresponding CConfigurableElement.
      * On error, NULL is returned and the error is explained in strError.
      */
-    const CConfigurableElement* getConfigurableElement(const std::string& strPath,
-                                                       std::string& strError) const;
+    CConfigurableElement *getConfigurableElement(const std::string &strPath, std::string &strError);
     // Dynamic parameter handling
-    CParameterHandle* createParameterHandle(const std::string& strPath, std::string& strError);
+    CParameterHandle *createParameterHandle(const std::string &strPath, std::string &strError);
+
+    /** Creates a handle to a configurable element.
+     *
+     * The returned object is owned by the client who is responsible to delete it.
+     *
+     * @param[in] path A string representing a path to a configurable element.
+     * @param[out] error On error: an human readable error message
+     *                   On success: undefined
+     *
+     * @return An element handle on success
+     *         nullptr on error
+     */
+    ElementHandle *createElementHandle(const std::string &path, std::string &error);
 
     /** Is the remote interface forcefully disabled ?
      */
@@ -178,19 +178,19 @@ public:
       *
       * @return failure on failed settings load policy state.
       */
-    bool getFailureOnFailedSettingsLoad();
+    bool getFailureOnFailedSettingsLoad() const;
 
-    /** Get the path to the directory containing the XML Schemas
+    /** Get the XML Schemas URI
      *
-     * @returns the directory containing the XML Schemas
+     * @returns the XML Schemas URI
      */
-    const std::string& getSchemaFolderLocation() const;
+    const std::string &getSchemaUri() const;
 
-    /** Override the directory containing the XML Schemas
+    /** Override the XML Schemas URI
      *
-     * @param[in] strSchemaFolderLocation directory containing the XML Schemas
+     * @param[in] schemaUri XML Schemas URI
      */
-    void setSchemaFolderLocation(const std::string& strSchemaFolderLocation);
+    void setSchemaUri(const std::string &schemaUri);
 
     /** Should .xml files be validated on start ?
      *
@@ -211,8 +211,16 @@ public:
     bool getValidateSchemasOnStart() const;
 
     //////////// Tuning /////////////
-    // Tuning mode
-    bool setTuningMode(bool bOn, std::string& strError);
+    /**
+     * Activate / deactivate the tuning mode.
+     *
+     * @param[in] bOn true if tuning mode activation is requested, false for desactivation
+     * @param[out] strError human readable error
+     * @return true if request is successful, false if the Parameter Manager is already in the mode
+     *         requested or in case of error.
+     *         If false, strError is set with the associated human readable error.
+     */
+    bool setTuningMode(bool bOn, std::string &strError);
     bool tuningModeOn() const;
 
     // Current value space for user set/get value interpretation
@@ -224,12 +232,13 @@ public:
     bool outputRawFormatIsHex();
 
     // Automatic hardware synchronization control (during tuning session)
-    bool setAutoSync(bool bAutoSyncOn, std::string& strError);
+    bool setAutoSync(bool bAutoSyncOn, std::string &strError);
     bool autoSyncOn() const;
-    bool sync(std::string& strError);
+    bool sync(std::string &strError);
 
     // User set/get parameters
-    bool accessParameterValue(const std::string& strPath, std::string& strValue, bool bSet, std::string& strError);
+    bool accessParameterValue(const std::string &strPath, std::string &strValue, bool bSet,
+                              std::string &strError);
     /**
      * Returns the element mapping corresponding to the path given in parameter.
      *
@@ -238,42 +247,61 @@ public:
      *
      * @return true if a mapping was found for this element
      */
-    bool getParameterMapping(const std::string& strPath, std::string& strValue) const;
-    bool accessConfigurationValue(const std::string &strDomain, const std::string &stConfiguration, const std::string& strPath, std::string& strValue, bool bSet, std::string& strError);
+    bool getParameterMapping(const std::string &strPath, std::string &strValue) const;
+    bool accessConfigurationValue(const std::string &strDomain, const std::string &stConfiguration,
+                                  const std::string &strPath, std::string &strValue, bool bSet,
+                                  std::string &strError);
 
     ////////// Configuration/Domains handling //////////////
     // Creation/Deletion
-    bool createDomain(const std::string& strName, std::string& strError);
-    bool renameDomain(const std::string& strName, const std::string& strNewName,
-                      std::string& strError);
-    bool deleteDomain(const std::string& strName, std::string& strError);
-    bool deleteAllDomains(std::string& strError);
-    bool setSequenceAwareness(const std::string& strName, bool bSequenceAware,
-                              std::string& strResult);
-    bool getSequenceAwareness(const std::string& strName, bool& bSequenceAware,
-                              std::string& strResult);
-    bool createConfiguration(const std::string& strDomain, const std::string& strConfiguration, std::string& strError);
-    bool deleteConfiguration(const std::string& strDomain, const std::string& strConfiguration, std::string& strError);
-    bool renameConfiguration(const std::string& strDomain, const std::string& strConfiguration, const std::string& strNewConfiguration, std::string& strError);
+    bool createDomain(const std::string &strName, std::string &strError);
+    bool renameDomain(const std::string &strName, const std::string &strNewName,
+                      std::string &strError);
+    bool deleteDomain(const std::string &strName, std::string &strError);
+    bool deleteAllDomains(std::string &strError);
+    bool setSequenceAwareness(const std::string &strName, bool bSequenceAware,
+                              std::string &strResult);
+    bool getSequenceAwareness(const std::string &strName, bool &bSequenceAware,
+                              std::string &strResult);
+    bool createConfiguration(const std::string &strDomain, const std::string &strConfiguration,
+                             std::string &strError);
+    bool deleteConfiguration(const std::string &strDomain, const std::string &strConfiguration,
+                             std::string &strError);
+    bool renameConfiguration(const std::string &strDomain, const std::string &strConfiguration,
+                             const std::string &strNewConfiguration, std::string &strError);
 
-    // Save/Restore
-    bool restoreConfiguration(const std::string& strDomain, const std::string& strConfiguration, std::list<std::string>& strError);
-    bool saveConfiguration(const std::string& strDomain, const std::string& strConfiguration, std::string& strError);
+    /** Restore a configuration
+     *
+     * @param[in] strDomain the domain name
+     * @param[in] strConfiguration the configuration name
+     * @param[out] errors errors encountered during restoration
+     * @return true if success false otherwise
+     */
+    bool restoreConfiguration(const std::string &strDomain, const std::string &strConfiguration,
+                              core::Results &errors);
+
+    bool saveConfiguration(const std::string &strDomain, const std::string &strConfiguration,
+                           std::string &strError);
 
     // Configurable element - domain association
-    bool addConfigurableElementToDomain(const std::string& strDomain, const std::string& strConfigurableElementPath, std::string& strError);
-    bool removeConfigurableElementFromDomain(const std::string& strDomain, const std::string& strConfigurableElementPath, std::string& strError);
-    bool split(const std::string& strDomain, const std::string& strConfigurableElementPath, std::string& strError);
-    bool setElementSequence(const std::string& strDomain, const std::string& strConfiguration,
-                            const std::vector<std::string>& astrNewElementSequence,
-                            std::string& strError);
+    bool addConfigurableElementToDomain(const std::string &strDomain,
+                                        const std::string &strConfigurableElementPath,
+                                        std::string &strError);
+    bool removeConfigurableElementFromDomain(const std::string &strDomain,
+                                             const std::string &strConfigurableElementPath,
+                                             std::string &strError);
+    bool split(const std::string &strDomain, const std::string &strConfigurableElementPath,
+               std::string &strError);
+    bool setElementSequence(const std::string &strDomain, const std::string &strConfiguration,
+                            const std::vector<std::string> &astrNewElementSequence,
+                            std::string &strError);
 
-    bool getApplicationRule(const std::string& strDomain, const std::string& strConfiguration,
-                            std::string& strResult);
-    bool setApplicationRule(const std::string& strDomain, const std::string& strConfiguration,
-                            const std::string& strApplicationRule, std::string& strError);
-    bool clearApplicationRule(const std::string& strDomain, const std::string& strConfiguration,
-                              std::string& strError);
+    bool getApplicationRule(const std::string &strDomain, const std::string &strConfiguration,
+                            std::string &strResult);
+    bool setApplicationRule(const std::string &strDomain, const std::string &strConfiguration,
+                            const std::string &strApplicationRule, std::string &strError);
+    bool clearApplicationRule(const std::string &strDomain, const std::string &strConfiguration,
+                              std::string &strError);
 
     /**
       * Method that imports Configurable Domains from an Xml source.
@@ -287,8 +315,8 @@ public:
       *
       * @return false if any error occures
       */
-    bool importDomainsXml(const std::string& xmlSource, bool withSettings, bool fromFile,
-                          std::string& errorMsg);
+    bool importDomainsXml(const std::string &xmlSource, bool withSettings, bool fromFile,
+                          std::string &errorMsg);
 
     /**
       * Method that imports a single Configurable Domain from an Xml source.
@@ -304,8 +332,8 @@ public:
       *
       * @return false if any error occurs
       */
-    bool importSingleDomainXml(const std::string& xmlSource, bool overwrite, bool withSettings,
-                               bool fromFile, std::string& errorMsg);
+    bool importSingleDomainXml(const std::string &xmlSource, bool overwrite, bool withSettings,
+                               bool fromFile, std::string &errorMsg);
 
     /**
       * Method that exports Configurable Domains to an Xml destination.
@@ -319,8 +347,8 @@ public:
       *
       * @return false if any error occurs, true otherwise.
       */
-    bool exportDomainsXml(std::string& xmlDest, bool withSettings, bool toFile,
-                          std::string& errorMsg) const;
+    bool exportDomainsXml(std::string &xmlDest, bool withSettings, bool toFile,
+                          std::string &errorMsg) const;
 
     /**
       * Method that exports a given Configurable Domain to an Xml destination.
@@ -335,112 +363,192 @@ public:
       *
       * @return false if any error occurs, true otherwise.
       */
-    bool exportSingleDomainXml(std::string& xmlDest, const std::string& domainName,
-                               bool withSettings, bool toFile, std::string& errorMsg) const;
-
-    // Binary Import/Export
-    bool importDomainsBinary(const std::string& strFileName, std::string& strError);
-    bool exportDomainsBinary(const std::string& strFileName, std::string& strError);
+    bool exportSingleDomainXml(std::string &xmlDest, const std::string &domainName,
+                               bool withSettings, bool toFile, std::string &errorMsg) const;
 
     /**
       * Method that exports an Xml description of the passed element into a string
       *
       * @param[in] pXmlSource The source element to export
       * @param[in] strRootElementType The XML root element name of the exported instance document
-      * @param[out] strResult contains the xml description or the error description in case false is returned
+      * @param[in] xmlSerializingContext the context to use for serialization
+      *                                  Is an rvalue as it must be destructed after this function
+      *                                  call to set the error.
+      *                                  Additionally, using it for an other serialization would
+      *                                  override the error.
+      * @param[out] strResult contains the xml description or the error description in case false is
+     * returned
       *
-      * @return true for success, false if any error occurs during the creation of the xml description (validation or encoding)
+      * @return true for success, false if any error occurs during the creation of the xml
+     * description (validation or encoding)
       */
-    bool exportElementToXMLString(const IXmlSource* pXmlSource,
-                                  const std::string& strRootElementType,
-                                  std::string& strResult) const;
+    bool exportElementToXMLString(const IXmlSource *pXmlSource,
+                                  const std::string &strRootElementType,
+                                  CXmlSerializingContext &&xmlSerializingContext,
+                                  std::string &strResult) const;
 
     // CElement
     virtual std::string getKind() const;
 
 private:
-    CParameterMgr(const CParameterMgr&);
-    CParameterMgr& operator=(const CParameterMgr&);
+    CParameterMgr(const CParameterMgr &);
+    CParameterMgr &operator=(const CParameterMgr &);
 
     // Init
-    virtual bool init(std::string& strError);
-
-    // Logging (done by root)
-    virtual void doLog(bool bIsWarning, const std::string& strLog) const;
-    virtual void nestLog() const;
-    virtual void unnestLog() const;
+    virtual bool init(std::string &strError);
 
     // Version
     std::string getVersion() const;
 
+    // This using is here for internal reasons: CommandHandler is public and is
+    // a unique_ptr but we want the type that's inside. And for legacy reason
+    // because that's the original name before a rework; this directive avoids
+    // renaming a lot of stuff.
+    using CCommandHandler = CommandHandler::element_type;
+    using RemoteCommandParser = CCommandHandler::CommandStatus (CParameterMgr::*)(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+
+    // Parser descriptions
+    struct SRemoteCommandParserItem
+    {
+        const char *_pcCommandName;
+        CParameterMgr::RemoteCommandParser _pfnParser;
+        size_t _minArgumentCount;
+        const char *_pcHelp;
+        const char *_pcDescription;
+    };
+
     ////////////////:: Remote command parsers
     /// Version
-    CCommandHandler::CommandStatus versionCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
+    CCommandHandler::CommandStatus versionCommandProcess(const IRemoteCommand &remoteCommand,
+                                                         std::string &strResult);
     /// Status
-    CCommandHandler::CommandStatus statusCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
+    CCommandHandler::CommandStatus statusCommandProcess(const IRemoteCommand &remoteCommand,
+                                                        std::string &strResult);
     /// Tuning Mode
-    CCommandHandler::CommandStatus setTuningModeCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus getTuningModeCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
+    CCommandHandler::CommandStatus setTuningModeCommandProcess(const IRemoteCommand &remoteCommand,
+                                                               std::string &strResult);
+    CCommandHandler::CommandStatus getTuningModeCommandProcess(const IRemoteCommand &remoteCommand,
+                                                               std::string &strResult);
     /// Value Space
-    CCommandHandler::CommandStatus setValueSpaceCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus getValueSpaceCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
+    CCommandHandler::CommandStatus setValueSpaceCommandProcess(const IRemoteCommand &remoteCommand,
+                                                               std::string &strResult);
+    CCommandHandler::CommandStatus getValueSpaceCommandProcess(const IRemoteCommand &remoteCommand,
+                                                               std::string &strResult);
     /// Output Raw Format
-    CCommandHandler::CommandStatus setOutputRawFormatCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus getOutputRawFormatCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
+    CCommandHandler::CommandStatus setOutputRawFormatCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus getOutputRawFormatCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
     /// Sync
-    CCommandHandler::CommandStatus setAutoSyncCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus getAutoSyncCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus syncCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
+    CCommandHandler::CommandStatus setAutoSyncCommandProcess(const IRemoteCommand &remoteCommand,
+                                                             std::string &strResult);
+    CCommandHandler::CommandStatus getAutoSyncCommandProcess(const IRemoteCommand &remoteCommand,
+                                                             std::string &strResult);
+    CCommandHandler::CommandStatus syncCommandProcess(const IRemoteCommand &remoteCommand,
+                                                      std::string &strResult);
     /// Criteria
-    CCommandHandler::CommandStatus listCriteriaCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
+    CCommandHandler::CommandStatus listCriteriaCommandProcess(const IRemoteCommand &remoteCommand,
+                                                              std::string &strResult);
     /// Domains
-    CCommandHandler::CommandStatus listDomainsCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus createDomainCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus deleteDomainCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus deleteAllDomainsCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus renameDomainCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus setSequenceAwarenessCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus getSequenceAwarenessCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus listDomainElementsCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus addElementCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus removeElementCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus splitDomainCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
+    CCommandHandler::CommandStatus listDomainsCommandProcess(const IRemoteCommand &remoteCommand,
+                                                             std::string &strResult);
+    CCommandHandler::CommandStatus createDomainCommandProcess(const IRemoteCommand &remoteCommand,
+                                                              std::string &strResult);
+    CCommandHandler::CommandStatus deleteDomainCommandProcess(const IRemoteCommand &remoteCommand,
+                                                              std::string &strResult);
+    CCommandHandler::CommandStatus deleteAllDomainsCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus renameDomainCommandProcess(const IRemoteCommand &remoteCommand,
+                                                              std::string &strResult);
+    CCommandHandler::CommandStatus setSequenceAwarenessCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus getSequenceAwarenessCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus listDomainElementsCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus addElementCommandProcess(const IRemoteCommand &remoteCommand,
+                                                            std::string &strResult);
+    CCommandHandler::CommandStatus removeElementCommandProcess(const IRemoteCommand &remoteCommand,
+                                                               std::string &strResult);
+    CCommandHandler::CommandStatus splitDomainCommandProcess(const IRemoteCommand &remoteCommand,
+                                                             std::string &strResult);
     /// Configurations
-    CCommandHandler::CommandStatus listConfigurationsCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus dumpDomainsCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus createConfigurationCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus deleteConfigurationCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus renameConfigurationCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus saveConfigurationCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus restoreConfigurationCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus setElementSequenceCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus getElementSequenceCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus setRuleCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus clearRuleCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus getRuleCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
+    CCommandHandler::CommandStatus listConfigurationsCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus dumpDomainsCommandProcess(const IRemoteCommand &remoteCommand,
+                                                             std::string &strResult);
+    CCommandHandler::CommandStatus createConfigurationCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus deleteConfigurationCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus renameConfigurationCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus saveConfigurationCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus restoreConfigurationCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus setElementSequenceCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus getElementSequenceCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus setRuleCommandProcess(const IRemoteCommand &remoteCommand,
+                                                         std::string &strResult);
+    CCommandHandler::CommandStatus clearRuleCommandProcess(const IRemoteCommand &remoteCommand,
+                                                           std::string &strResult);
+    CCommandHandler::CommandStatus getRuleCommandProcess(const IRemoteCommand &remoteCommand,
+                                                         std::string &strResult);
     /// Elements/Parameters
-    CCommandHandler::CommandStatus listElementsCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus listParametersCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus dumpElementCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus getElementSizeCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus showPropertiesCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus getParameterCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus setParameterCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus getConfigurationParameterCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus setConfigurationParameterCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus listBelongingDomainsCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus listAssociatedDomainsCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus showMappingCommandProcess(const IRemoteCommand& remoteCommand,
-                                                              std::string& strResult);
+    CCommandHandler::CommandStatus listElementsCommandProcess(const IRemoteCommand &remoteCommand,
+                                                              std::string &strResult);
+    CCommandHandler::CommandStatus listParametersCommandProcess(const IRemoteCommand &remoteCommand,
+                                                                std::string &strResult);
+    CCommandHandler::CommandStatus getElementStructureXMLCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus getElementBytesCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus setElementBytesCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus getElementXMLCommandProcess(const IRemoteCommand &remoteCommand,
+                                                               std::string &strResult);
+    CCommandHandler::CommandStatus setElementXMLCommandProcess(const IRemoteCommand &remoteCommand,
+                                                               std::string &strResult);
+    CCommandHandler::CommandStatus dumpElementCommandProcess(const IRemoteCommand &remoteCommand,
+                                                             std::string &strResult);
+    CCommandHandler::CommandStatus getElementSizeCommandProcess(const IRemoteCommand &remoteCommand,
+                                                                std::string &strResult);
+    CCommandHandler::CommandStatus showPropertiesCommandProcess(const IRemoteCommand &remoteCommand,
+                                                                std::string &strResult);
+    CCommandHandler::CommandStatus getParameterCommandProcess(const IRemoteCommand &remoteCommand,
+                                                              std::string &strResult);
+    CCommandHandler::CommandStatus setParameterCommandProcess(const IRemoteCommand &remoteCommand,
+                                                              std::string &strResult);
+    CCommandHandler::CommandStatus getConfigurationParameterCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus setConfigurationParameterCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus listBelongingDomainsCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus listAssociatedDomainsCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus showMappingCommandProcess(const IRemoteCommand &remoteCommand,
+                                                             std::string &strResult);
     /// Browse
-    CCommandHandler::CommandStatus listAssociatedElementsCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus listConflictingElementsCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus listRogueElementsCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
+    CCommandHandler::CommandStatus listAssociatedElementsCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus listConflictingElementsCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus listRogueElementsCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
     /// Settings Import/Export
-    CCommandHandler::CommandStatus exportDomainsXMLCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus importDomainsXMLCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus exportDomainsWithSettingsXMLCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus importDomainsWithSettingsXMLCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
+    CCommandHandler::CommandStatus exportDomainsXMLCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus importDomainsXMLCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus exportDomainsWithSettingsXMLCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
+    CCommandHandler::CommandStatus importDomainsWithSettingsXMLCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
     /**
       * Command handler method for exportDomainWithSettingsXML command.
       *
@@ -450,10 +558,10 @@ private:
       * @return CCommandHandler::ESucceeded if command succeeded or CCommandHandler::EFailed
       * in the other case
       */
-    CCommandHandler::CommandStatus exportDomainWithSettingsXMLCommandProcess(const IRemoteCommand& remoteCommand, std::string& result);
-    CCommandHandler::CommandStatus importDomainWithSettingsXMLCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus exportSettingsCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
-    CCommandHandler::CommandStatus importSettingsCommandProcess(const IRemoteCommand& remoteCommand, std::string& strResult);
+    CCommandHandler::CommandStatus exportDomainWithSettingsXMLCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &result);
+    CCommandHandler::CommandStatus importDomainWithSettingsXMLCommandProcess(
+        const IRemoteCommand &remoteCommand, std::string &strResult);
 
     /**
       * Command handler method for getDomainsWithSettings command.
@@ -465,7 +573,7 @@ private:
       * in the other case
       */
     CCommandHandler::CommandStatus getDomainsWithSettingsXMLCommandProcess(
-            const IRemoteCommand& remoteCommand, std::string& strResult);
+        const IRemoteCommand &remoteCommand, std::string &strResult);
 
     /**
       * Command handler method for getDomainWithSettings command.
@@ -477,7 +585,7 @@ private:
       * in the other case
       */
     CCommandHandler::CommandStatus getDomainWithSettingsXMLCommandProcess(
-            const IRemoteCommand& remoteCommand, std::string& strResult);
+        const IRemoteCommand &remoteCommand, std::string &strResult);
 
     /**
       * Command handler method for setDomainsWithSettings command.
@@ -489,7 +597,7 @@ private:
       * in the other case
       */
     CCommandHandler::CommandStatus setDomainsWithSettingsXMLCommandProcess(
-            const IRemoteCommand& remoteCommand, std::string& strResult);
+        const IRemoteCommand &remoteCommand, std::string &strResult);
 
     /**
       * Command handler method for setDomainWithSettings command.
@@ -501,7 +609,7 @@ private:
       * in the other case
       */
     CCommandHandler::CommandStatus setDomainWithSettingsXMLCommandProcess(
-            const IRemoteCommand& remoteCommand, std::string& result);
+        const IRemoteCommand &remoteCommand, std::string &result);
 
     /**
       * Command handler method for getSystemClass command.
@@ -513,49 +621,104 @@ private:
       * in the other case
       */
     CCommandHandler::CommandStatus getSystemClassXMLCommandProcess(
-            const IRemoteCommand& remoteCommand, std::string& strResult);
+        const IRemoteCommand &remoteCommand, std::string &strResult);
 
     // Max command usage length, use for formatting
     void setMaxCommandUsageLength();
 
     // For tuning, check we're in tuning mode
-    bool checkTuningModeOn(std::string& strError) const;
+    bool checkTuningModeOn(std::string &strError) const;
 
     // Blackboard (dynamic parameter handling)
-    pthread_mutex_t* getBlackboardMutex();
+    std::mutex &getBlackboardMutex();
 
     // Blackboard reference (dynamic parameter handling)
-    CParameterBlackboard* getParameterBlackboard();
+    CParameterBlackboard *getParameterBlackboard();
 
     // Parameter access
-    bool accessValue(CParameterAccessContext& parameterAccessContext, const std::string& strPath, std::string& strValue, bool bSet, std::string& strError);
-    bool doSetValue(const std::string& strPath, const std::string& strValue, bool bRawValueSpace, bool bDynamicAccess, std::string& strError) const;
-    bool doGetValue(const std::string& strPath, std::string& strValue, bool bRawValueSpace, bool bHexOutputRawFormat, bool bDynamicAccess, std::string& strError) const;
+    bool accessValue(CParameterAccessContext &parameterAccessContext, const std::string &strPath,
+                     std::string &strValue, bool bSet, std::string &strError);
+    bool doSetValue(const std::string &strPath, const std::string &strValue, bool bRawValueSpace,
+                    bool bDynamicAccess, std::string &strError) const;
+    bool doGetValue(const std::string &strPath, std::string &strValue, bool bRawValueSpace,
+                    bool bHexOutputRawFormat, bool bDynamicAccess, std::string &strError) const;
 
     // Framework global configuration loading
-    bool loadFrameworkConfiguration(std::string& strError);
+    bool loadFrameworkConfiguration(std::string &strError);
+
+    /** Load required subsystems
+     *
+     * @param[out] error error description if there is one
+     * @return true if succeed false otherwise
+     */
+    bool loadSubsystems(std::string &error);
 
     // System class Structure loading
-    bool loadStructure(std::string& strError);
+    bool loadStructure(std::string &strError);
 
     // System class Structure loading
-    bool loadSettings(std::string& strError);
-    bool loadSettingsFromConfigFile(std::string& strError);
+    bool loadSettings(std::string &strError);
+    bool loadSettingsFromConfigFile(std::string &strError);
+
+    /** Get settings from a configurable element in binary format.
+     *
+     * @param[in] element configurable element.
+     * @param[out] settings current element settings (in mainblackboard) in binary format
+     *
+     * @return true on success, false on error
+     */
+    void getSettingsAsBytes(const CConfigurableElement &element,
+                            std::vector<uint8_t> &settings) const;
+
+    /** Assign settings to a configurable element in binary format.
+     *
+     * @param[in] element configurable element.
+     * @param[in] settings the settings as byte array (binary).
+     * @param[out] error error message filled in case of error
+     *
+     * @return true in case of success, false oherwise, in which case error is filled with error
+     * message.
+     */
+    bool setSettingsAsBytes(const CConfigurableElement &element,
+                            const std::vector<uint8_t> &settings, std::string &error);
+
+    /** Assign settings to a configurable element in XML format.
+     *
+     * @param[in] configurableElement The element to set.
+     * @param[in] settings The settings to set.
+     * @param[out] error human readable error message filled in case of error,
+     *                   undefined in case of success.
+     * @return true in case of success, false otherwise
+     */
+    bool setSettingsAsXML(CConfigurableElement *configurableElement, const std::string &settings,
+                          std::string &error);
+
+    /** Get settings from a configurable element in XML format.
+     *
+     * @param[in] configurableElement The element to get settings from.
+     * @param[out] result on success: the exported setttings in XML
+     *                    on error: human readable error message
+     *
+     * @return true in case of success, false otherwise.
+     */
+    bool getSettingsAsXML(const CConfigurableElement *configurableElement,
+                          std::string &result) const;
 
     /** Parse an XML stream into an element
      *
      * @param[in] elementSerializingContext serializing context
      * @param[out] pRootElement the receiving element
      * @param[in] input the input XML stream
-     * @param[in] strXmlFolder the folder containing the XML input file (if applicable) or ""
+     * @param[in] baseUri the XML input file URI or ""
      * @param[in] eElementLibrary which element library to be used
+     * @param[in] replace Should the element be overridden or modified in place
      * @param[in] strNameAttributeName the name of the element's XML "name" attribute
      *
      * @returns true if parsing succeeded, false otherwise
      */
-    bool xmlParse(CXmlElementSerializingContext& elementSerializingContext, CElement* pRootElement,
-                  _xmlDoc* doc, const std::string& strXmlFolder,
-                  ElementLibrary eElementLibrary, const std::string& strNameAttributeName = "Name");
+    bool xmlParse(CXmlElementSerializingContext &elementSerializingContext, CElement *pRootElement,
+                  _xmlDoc *doc, const std::string &baseUri, ElementLibrary eElementLibrary,
+                  bool replace = true, const std::string &strNameAttributeName = "Name");
 
     /** Wrapper for converting public APIs semantics to internal API
      *
@@ -582,9 +745,9 @@ private:
      *
      * @returns true if the import succeeded, false otherwise
      */
-    bool wrapLegacyXmlImport(const std::string& xmlSource, bool fromFile, bool withSettings,
-                             CElement& element, const std::string& nameAttributeName,
-                             std::string& errorMsg);
+    bool wrapLegacyXmlImport(const std::string &xmlSource, bool fromFile, bool withSettings,
+                             CElement &element, const std::string &nameAttributeName,
+                             std::string &errorMsg);
 
     /**
      * Export an element object to an Xml destination.
@@ -596,8 +759,8 @@ private:
      *
      * @return false if any error occurs, true otherwise.
      */
-    bool serializeElement(std::ostream& output, CXmlSerializingContext& xmlSerializingContext,
-                          const CElement& element) const;
+    bool serializeElement(std::ostream &output, CXmlSerializingContext &xmlSerializingContext,
+                          const CElement &element) const;
 
     /** Wrapper for converting public APIs semantics to internal API
      *
@@ -622,42 +785,39 @@ private:
      *
      * @returns true if the export succeeded, false otherwise
      */
-    bool wrapLegacyXmlExport(std::string& xmlDest, bool toFile, bool withSettings,
-                             const CElement& element, std::string& errorMsg) const;
+    bool wrapLegacyXmlExport(std::string &xmlDest, bool toFile, bool withSettings,
+                             const CElement &element, std::string &errorMsg) const;
 
     /** Wrapper for converting public APIs semantics to internal API
      *
      * @see wrapLegacyXmlExport
      */
-    bool wrapLegacyXmlExportToFile(std::string& xmlDest,
-                                   const CElement& element,
+    bool wrapLegacyXmlExportToFile(std::string &xmlDest, const CElement &element,
                                    CXmlDomainExportContext &context) const;
 
     /** Wrapper for converting public APIs semantics to internal API
      *
      * @see wrapLegacyXmlExport
      */
-    bool wrapLegacyXmlExportToString(std::string& xmlDest,
-                                     const CElement& element,
+    bool wrapLegacyXmlExportToString(std::string &xmlDest, const CElement &element,
                                      CXmlDomainExportContext &context) const;
 
-
     // Framework Configuration
-    CParameterFrameworkConfiguration* getFrameworkConfiguration();
-    const CParameterFrameworkConfiguration* getConstFrameworkConfiguration();
+    CParameterFrameworkConfiguration *getFrameworkConfiguration();
+    const CParameterFrameworkConfiguration *getConstFrameworkConfiguration();
 
     // Selection Criteria
-    CSelectionCriteria* getSelectionCriteria();
-    const CSelectionCriteria* getConstSelectionCriteria();
+    CSelectionCriteria *getSelectionCriteria();
+    const CSelectionCriteria *getConstSelectionCriteria();
 
     // System Class
-    CSystemClass* getSystemClass();
-    const CSystemClass* getConstSystemClass() const;
+    CSystemClass *getSystemClass();
+    const CSystemClass *getConstSystemClass() const;
 
     // Configurable Domains
-    CConfigurableDomains* getConfigurableDomains();
-    const CConfigurableDomains* getConstConfigurableDomains();
-    const CConfigurableDomains* getConstConfigurableDomains() const;
+    CConfigurableDomains *getConfigurableDomains();
+    const CConfigurableDomains *getConstConfigurableDomains();
+    const CConfigurableDomains *getConstConfigurableDomains() const;
 
     // Apply configurations
     void doApplyConfigurations(bool bForce);
@@ -666,85 +826,83 @@ private:
     void feedElementLibraries();
 
     // Remote Processor Server connection handling
-    bool handleRemoteProcessingInterface(std::string& strError);
+    bool isRemoteInterfaceRequired();
+    bool handleRemoteProcessingInterface(std::string &strError);
+
+    /** Log the result of a function
+     *
+     * @param[in] isSuccess indicates if the previous function has succeed
+     * @param[in] result function provided result string
+     * @return isSuccess parameter
+     */
+    bool logResult(bool isSuccess, const std::string &result);
+
+    /** Info logger call helper */
+    inline core::log::details::Info info();
+
+    /** Warning logger call helper */
+    inline core::log::details::Warning warning();
 
     // Tuning
-    bool _bTuningModeIsOn;
+    bool _bTuningModeIsOn{false};
 
     // Value Space
-    bool _bValueSpaceIsRaw;
+    bool _bValueSpaceIsRaw{false};
 
     // Output Raw Format
-    bool _bOutputRawFormatIsHex;
+    bool _bOutputRawFormatIsHex{false};
 
     // Automatic synchronization to HW during Tuning session
-    bool _bAutoSyncOn;
+    bool _bAutoSyncOn{true};
 
     // Current Parameter Settings
-    CParameterBlackboard* _pMainParameterBlackboard;
+    CParameterBlackboard *_pMainParameterBlackboard;
 
     // Dynamic object creation
-    CElementLibrarySet* _pElementLibrarySet;
+    CElementLibrarySet *_pElementLibrarySet;
 
     // XML parsing, object creation handling
-    std::string _strXmlConfigurationFilePath; // Configuration file path
-    std::string _strXmlConfigurationFolderPath; // Root folder for configuration file
-    std::string _strSchemaFolderLocation; // Place where schemas stand
+    std::string _xmlConfigurationUri;
+    std::string _schemaUri; // Place where schemas stand
 
     // Subsystem plugin location
-    const CSubsystemPlugins* _pSubsystemPlugins;
-
-    /**
-     * Remote processor library handle
-     */
-    void* _pvLibRemoteProcessorHandle;
-
-    // Whole system structure checksum
-    uint8_t _uiStructureChecksum;
-
-    // Command Handler
-    CCommandHandler* _pCommandHandler;
+    const CSubsystemPlugins *_pSubsystemPlugins{nullptr};
 
     // Remote Processor Server
-    IRemoteProcessorServerInterface* _pRemoteProcessorServer;
+    IRemoteProcessorServerInterface *_pRemoteProcessorServer{nullptr};
 
     // Parser description array
     static const SRemoteCommandParserItem gastRemoteCommandParserItems[];
 
-    // Parser description array size
-    static const uint32_t guiNbRemoteCommandParserItems;
-
     // Maximum command usage length
-    uint32_t _uiMaxCommandUsageLength;
+    size_t _maxCommandUsageLength{0};
 
     // Blackboard access mutex
-    pthread_mutex_t _blackboardMutex;
+    std::mutex _blackboardMutex;
 
-    // Logging
-    ILogger* _pLogger;
-    mutable uint32_t _uiLogDepth;
+    /** Application main logger based on the one provided by the client */
+    mutable core::log::Logger _logger;
 
     /** If set to false, the remote interface won't be started no matter what.
      * If set to true - the default - it has no impact on the policy for
      * starting the remote interface.
      */
-    bool _bForceNoRemoteInterface;
+    bool _bForceNoRemoteInterface{false};
 
     /** If set to true, missing subsystem will abort parameterMgr start.
       * If set to false, missing subsystem will fallback on virtual subsystem.
       */
-    bool _bFailOnMissingSubsystem;
+    bool _bFailOnMissingSubsystem{true};
     /** If set to true, unparsable or discording domains will abort parameterMgr start.
       * If set to false, unparsable or discording domains
       *                 will continue the parameterMgr start with no domains.
       */
-    bool _bFailOnFailedSettingsLoad;
+    bool _bFailOnFailedSettingsLoad{true};
 
     /**
      * If set to true, parameterMgr will report an error
      *     when being unable to validate .xml files
      * If set to false, no .xml/xsd validation will happen (default behaviour)
      */
-    bool _bValidateSchemasOnStart;
+    bool _bValidateSchemasOnStart{false};
 };
-

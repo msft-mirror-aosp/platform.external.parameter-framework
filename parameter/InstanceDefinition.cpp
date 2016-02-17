@@ -32,10 +32,6 @@
 
 #define base CTypeElement
 
-CInstanceDefinition::CInstanceDefinition()
-{
-}
-
 std::string CInstanceDefinition::getKind() const
 {
     return "InstanceDefinition";
@@ -46,7 +42,7 @@ bool CInstanceDefinition::childrenAreDynamic() const
     return true;
 }
 
-CInstanceConfigurableElement* CInstanceDefinition::doInstantiate() const
+CInstanceConfigurableElement *CInstanceDefinition::doInstantiate() const
 {
     // Element not supposed to be instantiated direcly
     assert(0);
@@ -54,7 +50,7 @@ CInstanceConfigurableElement* CInstanceDefinition::doInstantiate() const
     return NULL;
 }
 
-void CInstanceDefinition::createInstances(CElement* pFatherElement)
+void CInstanceDefinition::createInstances(CElement *pFatherElement)
 {
     populate(pFatherElement);
 }

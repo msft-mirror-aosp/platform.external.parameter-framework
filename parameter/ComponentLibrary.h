@@ -40,14 +40,12 @@ class CComponentType;
 class CComponentLibrary : public CElement
 {
 public:
-    CComponentLibrary();
-
-    const CComponentType* getComponentType(const std::string& strName) const;
+    const CComponentType *getComponentType(const std::string &strName) const;
 
     virtual std::string getKind() const;
 
     // From IXmlSink
-    virtual bool fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& serializingContext);
+    virtual bool fromXml(const CXmlElement &xmlElement, CXmlSerializingContext &serializingContext);
 
 private:
     virtual bool childrenAreDynamic() const;

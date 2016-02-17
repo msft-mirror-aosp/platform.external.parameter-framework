@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, Intel Corporation
+ * Copyright (c) 2011-2015, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -29,6 +29,8 @@
  */
 #pragma once
 
+#include "parameter_export.h"
+
 #include <map>
 #include <string>
 
@@ -36,31 +38,30 @@
 
 class CElementBuilder;
 
-class CElementLibrary
+class PARAMETER_EXPORT CElementLibrary
 {
-    typedef std::map<std::string, const CElementBuilder*> ElementBuilderMap;
+    typedef std::map<std::string, const CElementBuilder *> ElementBuilderMap;
     typedef ElementBuilderMap::iterator ElementBuilderMapIterator;
     typedef ElementBuilderMap::const_iterator ElementBuilderMapConstIterator;
 
 public:
-    CElementLibrary();
     virtual ~CElementLibrary();
 
     /** Add a xml tag and it's corresponding builder in the library.
        *
-       * @param[in] xmlTag is the tag of an xml element that can be given to the builder to
-       *               create a new element.
+       * @param[in] type is the tag of an xml element that can be given to the builder to
+       *                 create a new element.
        * @param[in] pElementBuilder is the tag associated element builder.
        */
-    void addElementBuilder(const std::string& type, const CElementBuilder *pElementBuilder);
+    void addElementBuilder(const std::string &type, const CElementBuilder *pElementBuilder);
     void clean();
 
     // Instantiation
-    CElement* createElement(const CXmlElement& xmlElement) const;
+    CElement *createElement(const CXmlElement &xmlElement) const;
 
 private:
     // Builder type
-    virtual std::string getBuilderType(const CXmlElement& xmlElement) const;
+    virtual std::string getBuilderType(const CXmlElement &xmlElement) const;
 
     // Builders
     ElementBuilderMap _elementBuilderMap;

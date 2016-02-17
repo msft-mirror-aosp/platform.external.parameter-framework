@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, Intel Corporation
+ * Copyright (c) 2011-2015, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -29,23 +29,25 @@
  */
 #pragma once
 
+#include "parameter_export.h"
+
 #include "Element.h"
 #include <string>
 
 class CMappingData;
 class CInstanceConfigurableElement;
 
-class CTypeElement : public CElement
+class PARAMETER_EXPORT CTypeElement : public CElement
 {
 public:
-    CTypeElement(const std::string& strName = "");
+    CTypeElement(const std::string &strName = "");
     virtual ~CTypeElement();
 
     // Instantiation
-    CInstanceConfigurableElement* instantiate() const;
+    CInstanceConfigurableElement *instantiate() const;
 
     // Mapping info
-    virtual bool getMappingData(const std::string& strKey, const std::string*& pStrValue) const;
+    virtual bool getMappingData(const std::string &strKey, const std::string *&pStrValue) const;
     virtual bool hasMappingData() const;
 
     /**
@@ -56,19 +58,19 @@ public:
     virtual std::string getFormattedMapping() const;
 
     // Element properties
-    virtual void showProperties(std::string& strResult) const;
+    virtual void showProperties(std::string &strResult) const;
 
     // From IXmlSink
-    virtual bool fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& serializingContext);
+    virtual bool fromXml(const CXmlElement &xmlElement, CXmlSerializingContext &serializingContext);
 
     // From IXmlSource
-    virtual void toXml(CXmlElement& xmlElement, CXmlSerializingContext& serializingContext) const;
+    virtual void toXml(CXmlElement &xmlElement, CXmlSerializingContext &serializingContext) const;
 
     // Scalar or Array?
     bool isScalar() const;
 
     // Array Length
-    uint32_t getArrayLength() const;
+    size_t getArrayLength() const;
 
     /**
      * Converts size optimized integer input data (int8, int16, int32) to plain int
@@ -81,19 +83,31 @@ public:
 
 protected:
     // Object creation
-    virtual void populate(CElement* pElement) const;
+    virtual void populate(CElement *pElement) const;
+    /** @Returns the mapping associated to the current type and its predecessor
+     *
+     * The meaning of predecessor depends on the TypeElement type: e.g. for a
+     * component instance, the predecessor is the ComponentType; for a
+     * ComponentType, the predecessor is its base type.
+     *
+     * The predecessor's mapping comes first, then the current type's mapping.
+     *
+     * @param[in] predecessor A pointer to the predecessor or NULL.
+     */
+    std::string getFormattedMapping(const CTypeElement *predecessor) const;
+
 private:
-    CTypeElement(const CTypeElement&);
-    CTypeElement& operator=(const CTypeElement&);
+    CTypeElement(const CTypeElement &);
+    CTypeElement &operator=(const CTypeElement &);
     // Actual instance creation
-    virtual CInstanceConfigurableElement* doInstantiate() const = 0;
+    virtual CInstanceConfigurableElement *doInstantiate() const = 0;
 
     // Mapping data creation and access
-    CMappingData* getMappingData();
+    CMappingData *getMappingData();
 
     // For Arrays. 0 means scalar
-    uint32_t _uiArrayLength;
+    size_t _arrayLength{0};
 
     // Mapping info
-    CMappingData* _pMappingData;
+    CMappingData *_pMappingData{nullptr};
 };

@@ -30,11 +30,12 @@
 #pragma once
 
 #include "Element.h"
+#include <NonCopyable.hpp>
 
-class CElementBuilder
+class CElementBuilder : private utility::NonCopyable
 {
 public:
-    virtual ~CElementBuilder() {}
+    virtual ~CElementBuilder() = default;
 
-    virtual CElement* createElement(const CXmlElement& xmlElement) const = 0;
+    virtual CElement *createElement(const CXmlElement &xmlElement) const = 0;
 };

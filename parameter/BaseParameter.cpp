@@ -38,18 +38,23 @@
 
 using std::string;
 
-CBaseParameter::CBaseParameter(const string& strName, const CTypeElement* pTypeElement) : base(strName, pTypeElement)
+CBaseParameter::CBaseParameter(const string &strName, const CTypeElement *pTypeElement)
+    : base(strName, pTypeElement)
 {
 }
 
 // XML configuration settings parsing/composing
-bool CBaseParameter::serializeXmlSettings(CXmlElement& xmlConfigurationSettingsElementContent, CConfigurationAccessContext& configurationAccessContext) const
+bool CBaseParameter::serializeXmlSettings(
+    CXmlElement &xmlConfigurationSettingsElementContent,
+    CConfigurationAccessContext &configurationAccessContext) const
 {
     // Handle access
     if (!configurationAccessContext.serializeOut()) {
 
         // Write to blackboard
-        if (!doSetValue(xmlConfigurationSettingsElementContent.getTextContent(), getOffset() - configurationAccessContext.getBaseOffset(), configurationAccessContext)) {
+        if (!doSetValue(xmlConfigurationSettingsElementContent.getTextContent(),
+                        getOffset() - configurationAccessContext.getBaseOffset(),
+                        configurationAccessContext)) {
 
             appendParameterPathToError(configurationAccessContext);
             return false;
@@ -59,24 +64,25 @@ bool CBaseParameter::serializeXmlSettings(CXmlElement& xmlConfigurationSettingsE
         // Get string value
         string strValue;
 
-        doGetValue(strValue, getOffset() - configurationAccessContext.getBaseOffset(), configurationAccessContext);
+        doGetValue(strValue, getOffset() - configurationAccessContext.getBaseOffset(),
+                   configurationAccessContext);
 
         // Populate value into xml text node
         xmlConfigurationSettingsElementContent.setTextContent(strValue);
     }
 
     // Done
-    return true;
+    return base::serializeXmlSettings(xmlConfigurationSettingsElementContent,
+                                      configurationAccessContext);
 }
 
 // Dump
-void CBaseParameter::logValue(string& strValue, CErrorContext& errorContext) const
+string CBaseParameter::logValue(CParameterAccessContext &context) const
 {
-    // Parameter context
-    CParameterAccessContext& parameterAccessContext = static_cast<CParameterAccessContext&>(errorContext);
-
     // Dump value
-    doGetValue(strValue, getOffset(), parameterAccessContext);
+    string output;
+    doGetValue(output, getOffset(), context);
+    return output;
 }
 
 // Check element is a parameter
@@ -85,98 +91,67 @@ bool CBaseParameter::isParameter() const
     return true;
 }
 
-/// Value access
-// Boolean access
-bool CBaseParameter::accessAsBoolean(bool& bValue, bool bSet, CParameterAccessContext& parameterAccessContext) const
+bool CBaseParameter::access(bool & /*bValue*/, bool /*bSet*/,
+                            CParameterAccessContext &parameterAccessContext) const
 {
-    (void)bValue;
-    (void)bSet;
-
     parameterAccessContext.setError("Unsupported conversion");
-
+    return false;
+}
+bool CBaseParameter::access(std::vector<bool> & /*abValues*/, bool /*bSet*/,
+                            CParameterAccessContext &parameterAccessContext) const
+{
+    parameterAccessContext.setError("Unsupported conversion");
     return false;
 }
 
-bool CBaseParameter::accessAsBooleanArray(std::vector<bool>& abValues, bool bSet, CParameterAccessContext& parameterAccessContext) const
+bool CBaseParameter::access(uint32_t & /*bValue*/, bool /*bSet*/,
+                            CParameterAccessContext &parameterAccessContext) const
 {
-    (void)abValues;
-    (void)bSet;
-
     parameterAccessContext.setError("Unsupported conversion");
-
+    return false;
+}
+bool CBaseParameter::access(std::vector<uint32_t> & /*abValues*/, bool /*bSet*/,
+                            CParameterAccessContext &parameterAccessContext) const
+{
+    parameterAccessContext.setError("Unsupported conversion");
     return false;
 }
 
-// Integer Access
-bool CBaseParameter::accessAsInteger(uint32_t& uiValue, bool bSet, CParameterAccessContext& parameterAccessContext) const
+bool CBaseParameter::access(int32_t & /*bValue*/, bool /*bSet*/,
+                            CParameterAccessContext &parameterAccessContext) const
 {
-    (void)uiValue;
-    (void)bSet;
-
     parameterAccessContext.setError("Unsupported conversion");
-
+    return false;
+}
+bool CBaseParameter::access(std::vector<int32_t> & /*abValues*/, bool /*bSet*/,
+                            CParameterAccessContext &parameterAccessContext) const
+{
+    parameterAccessContext.setError("Unsupported conversion");
     return false;
 }
 
-bool CBaseParameter::accessAsIntegerArray(std::vector<uint32_t>& auiValues, bool bSet, CParameterAccessContext& parameterAccessContext) const
+bool CBaseParameter::access(double & /*bValue*/, bool /*bSet*/,
+                            CParameterAccessContext &parameterAccessContext) const
 {
-    (void)auiValues;
-    (void)bSet;
-
     parameterAccessContext.setError("Unsupported conversion");
-
     return false;
 }
-
-// Signed Integer Access
-bool CBaseParameter::accessAsSignedInteger(int32_t& iValue, bool bSet, CParameterAccessContext& parameterAccessContext) const
+bool CBaseParameter::access(std::vector<double> & /*abValues*/, bool /*bSet*/,
+                            CParameterAccessContext &parameterAccessContext) const
 {
-    (void)iValue;
-    (void)bSet;
-
     parameterAccessContext.setError("Unsupported conversion");
-
-    return false;
-}
-
-bool CBaseParameter::accessAsSignedIntegerArray(std::vector<int32_t>& aiValues, bool bSet, CParameterAccessContext& parameterAccessContext) const
-{
-    (void)aiValues;
-    (void)bSet;
-
-    parameterAccessContext.setError("Unsupported conversion");
-
-    return false;
-}
-
-// Double Access
-bool CBaseParameter::accessAsDouble(double& dValue, bool bSet, CParameterAccessContext& parameterAccessContext) const
-{
-    (void)dValue;
-    (void)bSet;
-
-    parameterAccessContext.setError("Unsupported conversion");
-
-    return false;
-}
-
-bool CBaseParameter::accessAsDoubleArray(std::vector<double>& adValues, bool bSet, CParameterAccessContext& parameterAccessContext) const
-{
-    (void)adValues;
-    (void)bSet;
-
-    parameterAccessContext.setError("Unsupported conversion");
-
     return false;
 }
 
 // String Access
-bool CBaseParameter::accessAsString(string& strValue, bool bSet, CParameterAccessContext& parameterAccessContext) const
+bool CBaseParameter::access(string &strValue, bool bSet,
+                            CParameterAccessContext &parameterAccessContext) const
 {
     if (bSet) {
 
         // Set Value
-        if (!doSetValue(strValue, getOffset() - parameterAccessContext.getBaseOffset(), parameterAccessContext)) {
+        if (!doSetValue(strValue, getOffset() - parameterAccessContext.getBaseOffset(),
+                        parameterAccessContext)) {
 
             appendParameterPathToError(parameterAccessContext);
             return false;
@@ -190,18 +165,16 @@ bool CBaseParameter::accessAsString(string& strValue, bool bSet, CParameterAcces
 
     } else {
         // Get Value
-        doGetValue(strValue, getOffset() - parameterAccessContext.getBaseOffset(), parameterAccessContext);
+        doGetValue(strValue, getOffset() - parameterAccessContext.getBaseOffset(),
+                   parameterAccessContext);
     }
 
     return true;
 }
 
-bool CBaseParameter::accessAsStringArray(std::vector<string>& astrValues, bool bSet, CParameterAccessContext& parameterAccessContext) const
+bool CBaseParameter::access(std::vector<string> & /*astrValues*/, bool /*bSet*/,
+                            CParameterAccessContext & /*ctx*/) const
 {
-    (void)astrValues;
-    (void)bSet;
-    (void)parameterAccessContext;
-
     // Generic string array access to scalar parameter must have been filtered out before
     assert(0);
 
@@ -209,7 +182,8 @@ bool CBaseParameter::accessAsStringArray(std::vector<string>& astrValues, bool b
 }
 
 // Parameter Access
-bool CBaseParameter::accessValue(CPathNavigator& pathNavigator, string& strValue, bool bSet, CParameterAccessContext& parameterAccessContext) const
+bool CBaseParameter::accessValue(CPathNavigator &pathNavigator, string &strValue, bool bSet,
+                                 CParameterAccessContext &parameterAccessContext) const
 {
     // Check path validity
     if (!checkPathExhausted(pathNavigator, parameterAccessContext)) {
@@ -217,19 +191,19 @@ bool CBaseParameter::accessValue(CPathNavigator& pathNavigator, string& strValue
         return false;
     }
 
-    return accessAsString(strValue, bSet, parameterAccessContext);
+    return access(strValue, bSet, parameterAccessContext);
 }
 
-void CBaseParameter::toXml(CXmlElement& xmlElement, CXmlSerializingContext& serializingContext) const
+void CBaseParameter::structureToXml(CXmlElement &xmlElement,
+                                    CXmlSerializingContext &serializingContext) const
 {
 
     // Delegate to type element
     getTypeElement()->toXml(xmlElement, serializingContext);
 }
 
-
-void CBaseParameter::appendParameterPathToError(CParameterAccessContext& parameterAccessContext)
-const
+void CBaseParameter::appendParameterPathToError(
+    CParameterAccessContext &parameterAccessContext) const
 {
     parameterAccessContext.appendToError(" " + getPath());
 }

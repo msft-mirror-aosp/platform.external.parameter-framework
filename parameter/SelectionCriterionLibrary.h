@@ -35,10 +35,8 @@
 class CSelectionCriterionLibrary : public CElement
 {
 public:
-    CSelectionCriterionLibrary();
-
     // Type creation
-    CSelectionCriterionType* createSelectionCriterionType(bool bIsInclusive);
+    CSelectionCriterionType *createSelectionCriterionType(bool bIsInclusive);
 
     // CElement
     virtual std::string getKind() const;

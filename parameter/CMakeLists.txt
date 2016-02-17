@@ -1,4 +1,4 @@
-# Copyright (c) 2014, Intel Corporation
+# Copyright (c) 2014-2015, Intel Corporation
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without modification,
@@ -26,19 +26,23 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+if(WIN32)
+    set(parameter_RESOURCE_FILE "${CMAKE_CURRENT_BINARY_DIR}/Resource.rc")
+    set(parameter_OS_SPECIFIC_SRCS ${parameter_RESOURCE_FILE})
+endif()
+
 add_library(parameter SHARED
+    ${parameter_OS_SPECIFIC_SRCS}
     AreaConfiguration.cpp
     ArrayParameter.cpp
-    AutoLog.cpp
     BaseParameter.cpp
-    BinarySerializableElement.cpp
-    BinaryStream.cpp
     BitParameterBlock.cpp
     BitParameterBlockType.cpp
     BitParameter.cpp
     BitParameterType.cpp
     BitwiseAreaConfiguration.cpp
     BooleanParameterType.cpp
+    CommandHandlerWrapper.cpp
     ComponentInstance.cpp
     ComponentLibrary.cpp
     ComponentType.cpp
@@ -55,8 +59,8 @@ add_library(parameter SHARED
     ElementLocator.cpp
     EnumParameterType.cpp
     EnumValuePair.cpp
-    ErrorContext.cpp
     FixedPointParameterType.cpp
+    FloatingPointParameterType.cpp
     FormattedSubsystemObject.cpp
     FrameworkConfigurationLocation.cpp
     HardwareBackSynchronizer.cpp
@@ -65,6 +69,7 @@ add_library(parameter SHARED
     IntegerParameterType.cpp
     LinearParameterAdaptation.cpp
     LogarithmicParameterAdaptation.cpp
+    LoggingElementBuilderTemplate.cpp
     MappingContext.cpp
     MappingData.cpp
     ParameterAccessContext.cpp
@@ -73,7 +78,7 @@ add_library(parameter SHARED
     ParameterBlockType.cpp
     Parameter.cpp
     ParameterFrameworkConfiguration.cpp
-    ParameterHandle.cpp
+    ElementHandle.cpp
     ParameterMgr.cpp
     ParameterMgrFullConnector.cpp
     ParameterMgrPlatformConnector.cpp
@@ -103,19 +108,43 @@ add_library(parameter SHARED
     XmlFileIncluderElement.cpp
     XmlParameterSerializingContext.cpp)
 
-include_directories(
-    include
-    "${PROJECT_SOURCE_DIR}/xmlserializer"
-    "${PROJECT_SOURCE_DIR}/utility"
-    "${PROJECT_SOURCE_DIR}/remote-processor")
+include(GenerateExportHeader)
+generate_export_header(parameter)
 
-# No need to link with libremote-processor: it is accessed via dlopen()
-find_library(dl dl)
-target_link_libraries(parameter xmlserializer pfw_utility dl)
+if(WIN32)
+    set(WINRC_MAJOR ${PF_VERSION_MAJOR})
+    set(WINRC_MINOR ${PF_VERSION_MINOR})
+    set(WINRC_PATCH ${PF_VERSION_PATCH})
+    set(WINRC_TWEAK ${PF_VERSION_TWEAK})
+    target_compile_definitions(parameter PRIVATE
+        WINRC_DLL
+        WINRC_FILENAME="$<TARGET_FILE_NAME:parameter>")
+    set(WINRC_FILE_DESCRIPTION "Parameter Framework library")
+    configure_file("${PROJECT_SOURCE_DIR}/support/windows/Resource.rc.in"
+                   "${parameter_RESOURCE_FILE}")
+endif()
 
-install(TARGETS parameter LIBRARY DESTINATION lib)
+configure_file(version.h.in "${CMAKE_CURRENT_BINARY_DIR}/version.h")
+
+target_link_libraries(parameter
+    # Unfortunatly xmlSink and xmlSource need to be exposed to the plugins
+    PUBLIC xmlserializer
+    PRIVATE pfw_utility remote-processor
+    PRIVATE ${CMAKE_DL_LIBS})
+
+target_include_directories(parameter
+    PUBLIC include log/include
+    # Export symbol macro header
+    PUBLIC "${CMAKE_CURRENT_BINARY_DIR}"
+    # FIXE: define . as an PUBLIC include directory only for plugins
+    PUBLIC .)
+
+install(TARGETS parameter LIBRARY DESTINATION lib RUNTIME DESTINATION bin ARCHIVE DESTINATION lib)
 # Client headers
 install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/parameter_export.h"
+    include/CommandHandlerInterface.h
+    include/ElementHandle.h
     include/ParameterHandle.h
     include/ParameterMgrLoggerForward.h
     include/ParameterMgrFullConnector.h
@@ -125,10 +154,9 @@ install(FILES
     DESTINATION "include/parameter/client")
 # Core (plugin) headers
 install(FILES
-    AutoLog.h
+    "${CMAKE_CURRENT_BINARY_DIR}/parameter_export.h"
     BitParameterBlockType.h
     ConfigurableElement.h
-    ConfigurableElementWithMapping.h
     DefaultElementLibrary.h
     Element.h
     ElementBuilder.h
@@ -136,12 +164,13 @@ install(FILES
     FileIncluderElementBuilder.h
     FormattedSubsystemObject.h
     InstanceConfigurableElement.h
+    LoggingElementBuilderTemplate.h
     Mapper.h
     MappingContext.h
-    NamedElementBuilderTemplate.h
     ParameterBlockType.h
     ParameterType.h
     PathNavigator.h
+    Plugin.h
     Subsystem.h
     SubsystemLibrary.h
     SubsystemObject.h
@@ -151,3 +180,5 @@ install(FILES
     TypeElement.h
     VirtualSubsystem.h
     DESTINATION "include/parameter/plugin")
+install(DIRECTORY log/include/log/
+        DESTINATION "include/parameter/plugin/log")

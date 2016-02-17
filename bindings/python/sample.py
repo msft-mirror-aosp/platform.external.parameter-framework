@@ -37,9 +37,10 @@ class MyLogger(PyPfw.ILogger):
         # won't be recognised as a derived class of PyPfw.ILogger
         super(MyLogger, self).__init__()
 
-    def log(self, is_warning, log):
-        log_func = logging.warning if is_warning else logging.info
-        log_func(log)
+    def info(self, msg):
+        logging.info(msg)
+    def warning(self, msg):
+        logging.warning(msg)
 
 
 logging.root.setLevel(logging.INFO)
@@ -59,6 +60,6 @@ mood = pfw.createSelectionCriterion("Mood", moodType)
 
 ok, error = pfw.start()
 if not ok:
-    print("Error while starting the pfw: {}".format(error))
+    print("Error while starting the pfw: '{}'".format(error))
 
 raw_input("[Press enter to exit]")

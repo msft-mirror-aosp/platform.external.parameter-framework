@@ -33,7 +33,7 @@
 
 #define base CTypeElement
 
-CParameterBlockType::CParameterBlockType(const std::string& strName) : base(strName)
+CParameterBlockType::CParameterBlockType(const std::string &strName) : base(strName)
 {
 }
 
@@ -47,24 +47,22 @@ bool CParameterBlockType::childrenAreDynamic() const
     return true;
 }
 
-CInstanceConfigurableElement* CParameterBlockType::doInstantiate() const
+CInstanceConfigurableElement *CParameterBlockType::doInstantiate() const
 {
     return new CParameterBlock(getName(), this);
 }
 
-void CParameterBlockType::populate(CElement* pElement) const
+void CParameterBlockType::populate(CElement *pElement) const
 {
-    uint32_t uiArrayLength = getArrayLength();
+    size_t arrayLength = getArrayLength();
 
-    if (uiArrayLength) {
+    if (arrayLength) {
 
         // Create child elements
-        size_t uiChild;
+        for (size_t child = 0; child < arrayLength; child++) {
 
-        for (uiChild = 0; uiChild < uiArrayLength; uiChild++) {
-
-            CParameterBlock* pChildParameterBlock = new CParameterBlock(CUtility::toString(uiChild),
-                                                                        this);
+            CParameterBlock *pChildParameterBlock =
+                new CParameterBlock(std::to_string(child), this);
 
             pElement->addChild(pChildParameterBlock);
 

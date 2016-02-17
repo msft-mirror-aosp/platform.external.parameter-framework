@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, Intel Corporation
+ * Copyright (c) 2011-2015, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -29,29 +29,33 @@
  */
 #pragma once
 
+#include "Results.h"
 #include <set>
-#include <string>
-#include <list>
 
 class ISyncer;
 class CParameterBlackboard;
 
 class CSyncerSet
 {
-    typedef std::set<ISyncer*>::const_iterator SyncerSetConstIterator;
-public:
-    CSyncerSet();
+    typedef std::set<ISyncer *>::const_iterator SyncerSetConstIterator;
 
+public:
     // Filling
-    const CSyncerSet& operator+=(ISyncer* pRightSyncer);
-    const CSyncerSet& operator+=(const CSyncerSet& rightSyncerSet);
+    const CSyncerSet &operator+=(ISyncer *pRightSyncer);
+    const CSyncerSet &operator+=(const CSyncerSet &rightSyncerSet);
 
     // Clearing
     void clear();
 
-    // Sync
-    bool sync(CParameterBlackboard& parameterBlackboard, bool bBack, std::list<std::string>* plstrError) const;
+    /** Sync the blackboard
+     *
+     * @param parameterBlackboard blackboard associated to syncer
+     * @param[in] bBack indicates if we want to back synchronise or to forward synchronise
+     * @param[out] errors, errors encountered during restoration
+     * @return true if success false otherwise
+     */
+    bool sync(CParameterBlackboard &parameterBlackboard, bool bBack, core::Results *errors) const;
 
 private:
-    std::set<ISyncer*> _syncerSet;
+    std::set<ISyncer *> _syncerSet;
 };

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, Intel Corporation
+ * Copyright (c) 2011-2015, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -29,7 +29,9 @@
  */
 #pragma once
 
-#include "ConfigurableElementWithMapping.h"
+#include "parameter_export.h"
+
+#include "ConfigurableElement.h"
 #include "TypeElement.h"
 
 #include <list>
@@ -39,10 +41,11 @@ class IMapper;
 class CParameterBlackboard;
 class CParameterAccessContext;
 
-class CInstanceConfigurableElement : public CConfigurableElementWithMapping
+class PARAMETER_EXPORT CInstanceConfigurableElement : public CConfigurableElement
 {
 public:
-    enum Type {
+    enum Type
+    {
         EBitParameter,
         EBitParameterBlock,
         EParameter,
@@ -51,12 +54,12 @@ public:
         EComponent
     };
 
-    CInstanceConfigurableElement(const std::string& strName, const CTypeElement* pTypeElement);
+    CInstanceConfigurableElement(const std::string &strName, const CTypeElement *pTypeElement);
 
     // Instantiated type
-    const CTypeElement* getTypeElement() const;
+    const CTypeElement *getTypeElement() const;
 
-    virtual bool getMappingData(const std::string& strKey, const std::string*& pStrValue) const;
+    virtual bool getMappingData(const std::string &strKey, const std::string *&pStrValue) const;
 
     /**
      * Returns the mapping data associated to the type element of the current
@@ -64,71 +67,59 @@ public:
      *
      * @return A std::string containing the formatted mapping
      */
-    std::string getFormattedMapping() const;
+    std::string getFormattedMapping() const override;
 
     // From CElement
     virtual std::string getKind() const;
+    std::string getXmlElementName() const override;
 
     // Syncer to/from HW
-    void setSyncer(ISyncer* pSyncer);
+    void setSyncer(ISyncer *pSyncer);
     void unsetSyncer();
 
     // Type
     virtual Type getType() const = 0;
 
     // Mapping execution
-    bool map(IMapper& mapper, std::string& strError);
+    bool map(IMapper &mapper, std::string &strError);
 
     // Element properties
-    virtual void showProperties(std::string& strResult) const;
+    virtual void showProperties(std::string &strResult) const;
 
     // Scalar or Array?
     bool isScalar() const;
 
     // Array Length
-    uint32_t getArrayLength() const;
+    size_t getArrayLength() const;
 
-    /**
-     * Get the list of all the ancestors that have a mapping.
-     *
-     * The mapping is represented as a std::string of all the mapping data (key:value) defined in the
-     * context of the element.
-     * In this class, the method is generic and calls its parent getListOfElementsWithMappings(...)
-     * method.
-     *
-     * @param[in:out] configurableElementPath List of all the ConfigurableElements found
-     * that have a mapping. Elements are added at the end of the list, so the root Element will be
-     * the last one.
-     */
-    virtual void getListOfElementsWithMapping(std::list<const CConfigurableElement*>&
-                                               configurableElementPath) const;
-
-    virtual void toXml(CXmlElement &xmlElement, CXmlSerializingContext &serializingContext) const;
+    virtual void structureToXml(CXmlElement &xmlElement,
+                                CXmlSerializingContext &serializingContext) const;
 
 protected:
     // Syncer
-    virtual ISyncer* getSyncer() const;
+    virtual ISyncer *getSyncer() const;
     // Syncer set (descendant)
-    virtual void fillSyncerSetFromDescendant(CSyncerSet& syncerSet) const;
+    virtual void fillSyncerSetFromDescendant(CSyncerSet &syncerSet) const;
 
     /**
      * Performs the sync if the AutoSync is enabled.
      * If AutoSync is disabled, any call to sync will returns true, even if synchronization has not
      * been done. It will happen when the AutoSync will be switched back on.
      *
-     * @param[in:out] parameterAccessContext Parameter access context object
+     * @param[in,out] parameterAccessContext Parameter access context object
      *
      * @return true if the synchronization succeded or if the AutoSync is off, false otherwise.
      */
-    bool sync(CParameterAccessContext& parameterAccessContext) const;
+    bool sync(CParameterAccessContext &parameterAccessContext) const;
 
     // Check parameter access path well formed for leaf elements
-    static bool checkPathExhausted(CPathNavigator& pathNavigator, CErrorContext& errorContext);
+    static bool checkPathExhausted(CPathNavigator &pathNavigator,
+                                   utility::ErrorContext &errorContext);
+
 private:
     // Type Element
-    const CTypeElement* _pTypeElement;
+    const CTypeElement *_pTypeElement;
 
     // Sync to HW
-    ISyncer* _pSyncer;
+    ISyncer *_pSyncer{nullptr};
 };
-

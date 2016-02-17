@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, Intel Corporation
+ * Copyright (c) 2011-2015, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -35,17 +35,17 @@
 #include "ConfigurationAccessContext.h"
 #include "SubsystemObjectCreator.h"
 #include "MappingData.h"
-#include "Utility.h"
 #include <assert.h>
 #include <sstream>
 
-#define base CConfigurableElementWithMapping
+#define base CConfigurableElement
 
 using std::string;
 using std::list;
-using std::ostringstream;
 
-CSubsystem::CSubsystem(const string& strName) : base(strName), _pComponentLibrary(new CComponentLibrary), _pInstanceDefinition(new CInstanceDefinition), _bBigEndian(false), _pMappingData(NULL)
+CSubsystem::CSubsystem(const string &strName, core::log::Logger &logger)
+    : base(strName), _pComponentLibrary(new CComponentLibrary),
+      _pInstanceDefinition(new CInstanceDefinition), _logger(logger)
 {
     // Note: A subsystem contains instance components
     // InstanceDefintion and ComponentLibrary objects are then not chosen to be children
@@ -54,20 +54,17 @@ CSubsystem::CSubsystem(const string& strName) : base(strName), _pComponentLibrar
 
 CSubsystem::~CSubsystem()
 {
-    // Remove subsystem objects
-    SubsystemObjectListIterator subsystemObjectIt;
+    // FIXME use unique_ptr, would make this method empty
 
-    for (subsystemObjectIt = _subsystemObjectList.begin(); subsystemObjectIt != _subsystemObjectList.end(); ++subsystemObjectIt) {
+    for (auto *subsystemObject : _subsystemObjectList) {
 
-        delete *subsystemObjectIt;
+        delete subsystemObject;
     }
 
     // Remove susbsystem creators
-    uint32_t uiIndex;
+    for (auto *subsystemObjectCreator : _subsystemObjectCreatorArray) {
 
-    for (uiIndex = 0; uiIndex < _subsystemObjectCreatorArray.size(); uiIndex++) {
-
-        delete _subsystemObjectCreatorArray[uiIndex];
+        delete subsystemObjectCreator;
     }
 
     // Order matters!
@@ -82,12 +79,6 @@ string CSubsystem::getKind() const
     return "Subsystem";
 }
 
-// Susbsystem Endianness
-bool CSubsystem::isBigEndian() const
-{
-    return _bBigEndian;
-}
-
 // Susbsystem sanity
 bool CSubsystem::isAlive() const
 {
@@ -95,22 +86,23 @@ bool CSubsystem::isAlive() const
 }
 
 // Resynchronization after subsystem restart needed
-bool CSubsystem::needResync(bool bClear)
+bool CSubsystem::needResync(bool /*bClear*/)
 {
-    (void)bClear;
-
     return false;
 }
 
-// From IXmlSink
-bool CSubsystem::fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& serializingContext)
+bool CSubsystem::structureFromXml(const CXmlElement &xmlElement,
+                                  CXmlSerializingContext &serializingContext)
 {
     // Subsystem class does not rely on generic fromXml algorithm of Element class.
     // So, setting here the description if found as XML attribute.
-    setDescription(getXmlDescriptionAttribute(xmlElement));
+    string description;
+    xmlElement.getAttribute(gDescriptionPropertyName, description);
+    setDescription(description);
 
     // Context
-    CXmlParameterSerializingContext& parameterBuildContext = static_cast<CXmlParameterSerializingContext&>(serializingContext);
+    CXmlParameterSerializingContext &parameterBuildContext =
+        static_cast<CXmlParameterSerializingContext &>(serializingContext);
 
     // Install temporary component library for further component creation
     parameterBuildContext.setComponentLibrary(_pComponentLibrary);
@@ -118,11 +110,16 @@ bool CSubsystem::fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& 
     CXmlElement childElement;
 
     // Manage mapping attribute
-    if (xmlElement.hasAttribute("Mapping")) {
+    string rawMapping;
+    xmlElement.getAttribute("Mapping", rawMapping);
+    if (!rawMapping.empty()) {
 
+        std::string error;
         _pMappingData = new CMappingData;
-        if (!_pMappingData->fromXml(xmlElement, serializingContext)) {
+        if (!_pMappingData->init(rawMapping, error)) {
 
+            serializingContext.setError("Invalid Mapping data from XML element '" +
+                                        xmlElement.getPath() + "': " + error);
             return false;
         }
     }
@@ -154,23 +151,10 @@ bool CSubsystem::fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& 
         return false;
     }
 
-    // Endianness
-    _bBigEndian = xmlElement.getAttributeBoolean("Endianness", "Big");
-
     return true;
 }
 
-// XML configuration settings parsing
-bool CSubsystem::serializeXmlSettings(CXmlElement& xmlConfigurationSettingsElementContent, CConfigurationAccessContext& configurationAccessContext) const
-{
-    // Fix Endianness
-    configurationAccessContext.setBigEndianSubsystem(_bBigEndian);
-
-    return base::serializeXmlSettings(xmlConfigurationSettingsElementContent, configurationAccessContext);
-}
-
-
-bool CSubsystem::mapSubsystemElements(string& strError)
+bool CSubsystem::mapSubsystemElements(string &strError)
 {
     // Default mapping context
     CMappingContext context(_contextMappingKeyArray.size());
@@ -180,12 +164,12 @@ bool CSubsystem::mapSubsystemElements(string& strError)
     _contextStack.push(context);
 
     // Map all instantiated subelements in subsystem
-    size_t uiNbChildren = getNbChildren();
-    size_t uiChild;
+    size_t nbChildren = getNbChildren();
 
-    for (uiChild = 0; uiChild < uiNbChildren; uiChild++) {
+    for (size_t child = 0; child < nbChildren; child++) {
 
-        CInstanceConfigurableElement* pInstanceConfigurableChildElement = static_cast<CInstanceConfigurableElement*>(getChild(uiChild));
+        CInstanceConfigurableElement *pInstanceConfigurableChildElement =
+            static_cast<CInstanceConfigurableElement *>(getChild(child));
 
         if (!pInstanceConfigurableChildElement->map(*this, strError)) {
 
@@ -195,70 +179,61 @@ bool CSubsystem::mapSubsystemElements(string& strError)
     return true;
 }
 
-// Parameter access
-bool CSubsystem::accessValue(CPathNavigator& pathNavigator, string& strValue, bool bSet, CParameterAccessContext& parameterAccessContext) const
-{
-    // Deal with Endianness
-    parameterAccessContext.setBigEndianSubsystem(_bBigEndian);
-
-    return base::accessValue(pathNavigator, strValue, bSet, parameterAccessContext);
-}
-
 // Formats the mapping of the ConfigurableElements
 string CSubsystem::formatMappingDataList(
-        const list<const CConfigurableElement*>& configurableElementPath) const
+    const list<const CConfigurableElement *> &configurableElementPath) const
 {
     // The list is parsed in reverse order because it has been filled from the leaf to the trunk
     // of the tree. When formatting the mapping, we want to start from the subsystem level
-    ostringstream ossStream;
-    list<const CConfigurableElement*>::const_reverse_iterator it;
+    std::list<string> mappings;
+    list<const CConfigurableElement *>::const_reverse_iterator it;
     for (it = configurableElementPath.rbegin(); it != configurableElementPath.rend(); ++it) {
 
-        const CInstanceConfigurableElement* pInstanceConfigurableElement =
-                static_cast<const CInstanceConfigurableElement*>(*it);
-
-        ossStream << pInstanceConfigurableElement->getFormattedMapping() << ", ";
+        auto maybeMapping = (*it)->getFormattedMapping();
+        if (not maybeMapping.empty()) {
+            mappings.push_back(maybeMapping);
+        }
     }
-    return ossStream.str();
+
+    return utility::asString(mappings, ", ");
 }
 
 // Find the CSubystemObject containing a specific CInstanceConfigurableElement
-const CSubsystemObject* CSubsystem::findSubsystemObjectFromConfigurableElement(
-        const CInstanceConfigurableElement* pInstanceConfigurableElement) const {
+const CSubsystemObject *CSubsystem::findSubsystemObjectFromConfigurableElement(
+    const CInstanceConfigurableElement *pInstanceConfigurableElement) const
+{
 
-    const CSubsystemObject* pSubsystemObject = NULL;
-
-    list<CSubsystemObject*>::const_iterator it;
+    list<CSubsystemObject *>::const_iterator it;
     for (it = _subsystemObjectList.begin(); it != _subsystemObjectList.end(); ++it) {
 
         // Check if one of the SubsystemObjects is associated with a ConfigurableElement
         // corresponding to the expected one
-        pSubsystemObject = *it;
+        const CSubsystemObject *pSubsystemObject = *it;
+
         if (pSubsystemObject->getConfigurableElement() == pInstanceConfigurableElement) {
 
-            break;
+            return pSubsystemObject;
         }
     }
 
-    return pSubsystemObject;
+    return nullptr;
 }
 
 void CSubsystem::findSubsystemLevelMappingKeyValue(
-        const CInstanceConfigurableElement* pInstanceConfigurableElement,
-        string& strMappingKey,
-        string& strMappingValue) const
+    const CInstanceConfigurableElement *pInstanceConfigurableElement, string &strMappingKey,
+    string &strMappingValue) const
 {
     // Find creator to get key name
-    std::vector<CSubsystemObjectCreator*>::const_iterator it;
-    for (it = _subsystemObjectCreatorArray.begin();
-         it != _subsystemObjectCreatorArray.end(); ++it) {
+    std::vector<CSubsystemObjectCreator *>::const_iterator it;
+    for (it = _subsystemObjectCreatorArray.begin(); it != _subsystemObjectCreatorArray.end();
+         ++it) {
 
-        const CSubsystemObjectCreator* pSubsystemObjectCreator = *it;
+        const CSubsystemObjectCreator *pSubsystemObjectCreator = *it;
 
         strMappingKey = pSubsystemObjectCreator->getMappingKey();
 
         // Check if the ObjectCreator MappingKey corresponds to the element mapping data
-        const string* pStrValue;
+        const string *pStrValue;
         if (pInstanceConfigurableElement->getMappingData(strMappingKey, pStrValue)) {
 
             strMappingValue = *pStrValue;
@@ -270,11 +245,11 @@ void CSubsystem::findSubsystemLevelMappingKeyValue(
 
 // Formats the mapping data as a comma separated list of key value pairs
 string CSubsystem::getFormattedSubsystemMappingData(
-        const CInstanceConfigurableElement* pInstanceConfigurableElement) const
+    const CInstanceConfigurableElement *pInstanceConfigurableElement) const
 {
     // Find the SubsystemObject related to pInstanceConfigurableElement
-    const CSubsystemObject* pSubsystemObject = findSubsystemObjectFromConfigurableElement(
-                pInstanceConfigurableElement);
+    const CSubsystemObject *pSubsystemObject =
+        findSubsystemObjectFromConfigurableElement(pInstanceConfigurableElement);
 
     // Exit if node does not correspond to a SubsystemObject
     if (pSubsystemObject == NULL) {
@@ -291,7 +266,7 @@ string CSubsystem::getFormattedSubsystemMappingData(
     return strMappingKey + ":" + pSubsystemObject->getFormattedMappingValue();
 }
 
-string CSubsystem::getMapping(list<const CConfigurableElement*>& configurableElementPath) const
+string CSubsystem::getMapping(list<const CConfigurableElement *> &configurableElementPath) const
 {
     if (configurableElementPath.empty()) {
 
@@ -299,71 +274,55 @@ string CSubsystem::getMapping(list<const CConfigurableElement*>& configurableEle
     }
 
     // Get the first element, which is the element containing the amended mapping
-    const CInstanceConfigurableElement* pInstanceConfigurableElement =
-            static_cast<const CInstanceConfigurableElement*>(configurableElementPath.front());
-    configurableElementPath.pop_front();
-    // Now the list only contains elements whose mapping are related to the context
+    const CInstanceConfigurableElement *pInstanceConfigurableElement =
+        static_cast<const CInstanceConfigurableElement *>(configurableElementPath.front());
 
     // Format context mapping data
     string strValue = formatMappingDataList(configurableElementPath);
 
     // Print the mapping of the first node, which corresponds to a SubsystemObject
-    strValue += getFormattedSubsystemMappingData(pInstanceConfigurableElement);
+    auto subsystemObjectAmendedMapping =
+        getFormattedSubsystemMappingData(pInstanceConfigurableElement);
+    if (not subsystemObjectAmendedMapping.empty()) {
+        strValue += ", " + subsystemObjectAmendedMapping;
+    }
 
     return strValue;
 }
 
-void CSubsystem::logValue(string& strValue, CErrorContext& errorContext) const
-{
-    CParameterAccessContext& parameterAccessContext = static_cast<CParameterAccessContext&>(errorContext);
-
-    // Deal with Endianness
-    parameterAccessContext.setBigEndianSubsystem(_bBigEndian);
-
-    return base::logValue(strValue, errorContext);
-}
-
 // Used for simulation and virtual subsystems
-void CSubsystem::setDefaultValues(CParameterAccessContext& parameterAccessContext) const
+void CSubsystem::setDefaultValues(CParameterAccessContext &parameterAccessContext) const
 {
-    // Deal with Endianness
-    parameterAccessContext.setBigEndianSubsystem(_bBigEndian);
-
     base::setDefaultValues(parameterAccessContext);
 }
 
 // Belonging subsystem
-const CSubsystem* CSubsystem::getBelongingSubsystem() const
+const CSubsystem *CSubsystem::getBelongingSubsystem() const
 {
     return this;
 }
 
 // Subsystem context mapping keys publication
-void CSubsystem::addContextMappingKey(const string& strMappingKey)
+void CSubsystem::addContextMappingKey(const string &strMappingKey)
 {
     _contextMappingKeyArray.push_back(strMappingKey);
 }
 
 // Subsystem object creator publication (strong reference)
-void CSubsystem::addSubsystemObjectFactory(CSubsystemObjectCreator* pSubsystemObjectCreator)
+void CSubsystem::addSubsystemObjectFactory(CSubsystemObjectCreator *pSubsystemObjectCreator)
 {
     _subsystemObjectCreatorArray.push_back(pSubsystemObjectCreator);
 }
 
 // Generic error handling from derived subsystem classes
-string CSubsystem::getMappingError(
-        const string& strKey,
-        const string& strMessage,
-        const CConfigurableElementWithMapping* pConfigurableElementWithMapping) const
+string CSubsystem::getMappingError(const string &strKey, const string &strMessage,
+                                   const CConfigurableElement *pConfigurableElement) const
 {
-    return getName() + " " + getKind() + " " +
-            "mapping:\n" + strKey + " " +
-            "error: \"" + strMessage + "\" " +
-            "for element " + pConfigurableElementWithMapping->getPath();
+    return getName() + " " + getKind() + " " + "mapping:\n" + strKey + " " + "error: \"" +
+           strMessage + "\" " + "for element " + pConfigurableElement->getPath();
 }
 
-
-bool CSubsystem::getMappingData(const std::string& strKey, const std::string*& pStrValue) const
+bool CSubsystem::getMappingData(const std::string &strKey, const std::string *&pStrValue) const
 {
     if (_pMappingData) {
 
@@ -372,25 +331,30 @@ bool CSubsystem::getMappingData(const std::string& strKey, const std::string*& p
     return false;
 }
 
+// Returns the formatted mapping
+std::string CSubsystem::getFormattedMapping() const
+{
+    if (!_pMappingData) {
+        return "";
+    }
+    return _pMappingData->asString();
+}
+
 // Mapping generic context handling
-bool CSubsystem::handleMappingContext(
-        const CConfigurableElementWithMapping* pConfigurableElementWithMapping,
-        CMappingContext& context,
-        string& strError) const
+bool CSubsystem::handleMappingContext(const CConfigurableElement *pConfigurableElement,
+                                      CMappingContext &context, string &strError) const
 {
     // Feed context with found mapping data
-    uint32_t uiItem;
+    for (size_t item = 0; item < _contextMappingKeyArray.size(); item++) {
 
-    for (uiItem = 0; uiItem < _contextMappingKeyArray.size(); uiItem++) {
+        const string &strKey = _contextMappingKeyArray[item];
+        const string *pStrValue;
 
-        const string& strKey = _contextMappingKeyArray[uiItem];
-        const string* pStrValue;
-
-        if (pConfigurableElementWithMapping->getMappingData(strKey, pStrValue)) {
+        if (pConfigurableElement->getMappingData(strKey, pStrValue)) {
             // Assign item to context
-            if (!context.setItem(uiItem, &strKey, pStrValue)) {
+            if (!context.setItem(item, &strKey, pStrValue)) {
 
-                strError = getMappingError(strKey, "Already set", pConfigurableElementWithMapping);
+                strError = getMappingError(strKey, "Already set", pConfigurableElement);
 
                 return false;
             }
@@ -401,30 +365,26 @@ bool CSubsystem::handleMappingContext(
 
 // Subsystem object creation handling
 bool CSubsystem::handleSubsystemObjectCreation(
-        CInstanceConfigurableElement* pInstanceConfigurableElement,
-        CMappingContext& context, bool& bHasCreatedSubsystemObject, string& strError)
+    CInstanceConfigurableElement *pInstanceConfigurableElement, CMappingContext &context,
+    bool &bHasCreatedSubsystemObject, string &strError)
 {
-    uint32_t uiItem;
     bHasCreatedSubsystemObject = false;
 
-    for (uiItem = 0; uiItem < _subsystemObjectCreatorArray.size(); uiItem++) {
-
-        const CSubsystemObjectCreator* pSubsystemObjectCreator =
-                _subsystemObjectCreatorArray[uiItem];
+    for (const auto *pSubsystemObjectCreator : _subsystemObjectCreatorArray) {
 
         // Mapping key
         string strKey = pSubsystemObjectCreator->getMappingKey();
         // Object id
-        const string* pStrValue;
+        const string *pStrValue;
 
         if (pInstanceConfigurableElement->getMappingData(strKey, pStrValue)) {
 
             // First check context consistency
             // (required ancestors must have been set prior to object creation)
-            uint32_t uiAncestorKey;
             uint32_t uiAncestorMask = pSubsystemObjectCreator->getAncestorMask();
 
-            for (uiAncestorKey = 0; uiAncestorKey < _contextMappingKeyArray.size(); uiAncestorKey++) {
+            for (size_t uiAncestorKey = 0; uiAncestorKey < _contextMappingKeyArray.size();
+                 uiAncestorKey++) {
 
                 if (!((1 << uiAncestorKey) & uiAncestorMask)) {
                     // Ancestor not required
@@ -433,8 +393,9 @@ bool CSubsystem::handleSubsystemObjectCreation(
                 // Check ancestor was provided
                 if (!context.iSet(uiAncestorKey)) {
 
-                    strError = getMappingError(strKey, _contextMappingKeyArray[uiAncestorKey] +
-                                               " not set", pInstanceConfigurableElement);
+                    strError =
+                        getMappingError(strKey, _contextMappingKeyArray[uiAncestorKey] + " not set",
+                                        pInstanceConfigurableElement);
 
                     return false;
                 }
@@ -444,9 +405,9 @@ bool CSubsystem::handleSubsystemObjectCreation(
             if (pInstanceConfigurableElement->getFootPrint() >
                 pSubsystemObjectCreator->getMaxConfigurableElementSize()) {
 
-                string strSizeError = "Size should not exceed " +
-                                      CUtility::toString(
-                                        pSubsystemObjectCreator->getMaxConfigurableElementSize());
+                string strSizeError =
+                    "Size should not exceed " +
+                    std::to_string(pSubsystemObjectCreator->getMaxConfigurableElementSize());
 
                 strError = getMappingError(strKey, strSizeError, pInstanceConfigurableElement);
 
@@ -455,7 +416,7 @@ bool CSubsystem::handleSubsystemObjectCreation(
 
             // Do create object and keep its track
             _subsystemObjectList.push_back(pSubsystemObjectCreator->objectCreate(
-                    *pStrValue, pInstanceConfigurableElement, context));
+                *pStrValue, pInstanceConfigurableElement, context, _logger));
 
             // Indicate subsytem creation to caller
             bHasCreatedSubsystemObject = true;
@@ -471,15 +432,14 @@ bool CSubsystem::handleSubsystemObjectCreation(
 
 // From IMapper
 // Handle a configurable element mapping
-bool CSubsystem::mapBegin(CInstanceConfigurableElement* pInstanceConfigurableElement,
-                          bool& bKeepDiving, string& strError)
+bool CSubsystem::mapBegin(CInstanceConfigurableElement *pInstanceConfigurableElement,
+                          bool &bKeepDiving, string &strError)
 {
     // Get current context
     CMappingContext context = _contextStack.top();
 
     // Add mapping in context
-    if (!handleMappingContext(pInstanceConfigurableElement, context,
-                              strError)) {
+    if (!handleMappingContext(pInstanceConfigurableElement, context, strError)) {
 
         return false;
     }
@@ -493,40 +453,39 @@ bool CSubsystem::mapBegin(CInstanceConfigurableElement* pInstanceConfigurableEle
     // Deal with ambiguous usage of parameter blocks
     bool bShouldCreateSubsystemObject = true;
 
-    switch(pInstanceConfigurableElement->getType()) {
+    switch (pInstanceConfigurableElement->getType()) {
 
-        case CInstanceConfigurableElement::EComponent:
-        case CInstanceConfigurableElement::EParameterBlock:
-            // Subsystem object creation is optional in parameter blocks
-            bShouldCreateSubsystemObject = false;
-            // No break
-        case CInstanceConfigurableElement::EBitParameterBlock:
-        case CInstanceConfigurableElement::EParameter:
-        case CInstanceConfigurableElement::EStringParameter:
+    case CInstanceConfigurableElement::EComponent:
+    case CInstanceConfigurableElement::EParameterBlock:
+        // Subsystem object creation is optional in parameter blocks
+        bShouldCreateSubsystemObject = false;
+    // No break
+    case CInstanceConfigurableElement::EBitParameterBlock:
+    case CInstanceConfigurableElement::EParameter:
+    case CInstanceConfigurableElement::EStringParameter:
 
-            bool bHasCreatedSubsystemObject;
+        bool bHasCreatedSubsystemObject;
 
-            if (!handleSubsystemObjectCreation(pInstanceConfigurableElement, context,
-                                               bHasCreatedSubsystemObject, strError)) {
+        if (!handleSubsystemObjectCreation(pInstanceConfigurableElement, context,
+                                           bHasCreatedSubsystemObject, strError)) {
 
-                return false;
-            }
-            // Check for creation error
-            if (bShouldCreateSubsystemObject && !bHasCreatedSubsystemObject) {
-
-                strError = getMappingError("Not found",
-                                           "Subsystem object mapping key is missing",
-                                           pInstanceConfigurableElement);
-                return false;
-            }
-            // Not created and no error, keep diving
-            bKeepDiving = !bHasCreatedSubsystemObject;
-
-            return true;
-
-        default:
-            assert(0);
             return false;
+        }
+        // Check for creation error
+        if (bShouldCreateSubsystemObject && !bHasCreatedSubsystemObject) {
+
+            strError = getMappingError("Not found", "Subsystem object mapping key is missing",
+                                       pInstanceConfigurableElement);
+            return false;
+        }
+        // Not created and no error, keep diving
+        bKeepDiving = !bHasCreatedSubsystemObject;
+
+        return true;
+
+    default:
+        assert(0);
+        return false;
     }
 }
 

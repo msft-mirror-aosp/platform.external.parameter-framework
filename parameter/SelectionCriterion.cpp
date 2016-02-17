@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, Intel Corporation
+ * Copyright (c) 2011-2015, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -29,12 +29,17 @@
  */
 
 #include "SelectionCriterion.h"
-#include "AutoLog.h"
 #include "Utility.h"
+#include <log/Logger.h>
 
 #define base CElement
 
-CSelectionCriterion::CSelectionCriterion(const std::string& strName, const CSelectionCriterionType* pType) : base(strName), _iState(0), _pType(pType), _uiNbModifications(0)
+using namespace core;
+
+CSelectionCriterion::CSelectionCriterion(const std::string &strName,
+                                         const CSelectionCriterionType *pType,
+                                         core::log::Logger &logger)
+    : base(strName), _pType(pType), _logger(logger)
 {
 }
 
@@ -62,13 +67,17 @@ void CSelectionCriterion::setCriterionState(int iState)
 
         _iState = iState;
 
-        log_info("Selection criterion changed event: %s", getFormattedDescription(false, false).c_str());
+        _logger.info() << "Selection criterion changed event: "
+                       << getFormattedDescription(false, false);
 
-        // Check if the previous criterion value has been taken into account (i.e. at least one Configuration was applied
+        // Check if the previous criterion value has been taken into account (i.e. at least one
+        // Configuration was applied
         // since the last criterion change)
         if (_uiNbModifications != 0) {
 
-            log_warning("Selection criterion \"%s\" has been modified %d time(s) without any configuration application", getName().c_str(), _uiNbModifications);
+            _logger.warning() << "Selection criterion '" << getName() << "' has been modified "
+                              << _uiNbModifications
+                              << " time(s) without any configuration application";
         }
 
         // Track the number of modifications for this criterion
@@ -88,7 +97,7 @@ std::string CSelectionCriterion::getCriterionName() const
 }
 
 // Type
-const ISelectionCriterionTypeInterface* CSelectionCriterion::getCriterionType() const
+const ISelectionCriterionTypeInterface *CSelectionCriterion::getCriterionType() const
 {
     return _pType;
 }
@@ -117,7 +126,8 @@ bool CSelectionCriterion::excludes(int iState) const
 }
 
 /// User request
-std::string CSelectionCriterion::getFormattedDescription(bool bWithTypeInfo, bool bHumanReadable) const
+std::string CSelectionCriterion::getFormattedDescription(bool bWithTypeInfo,
+                                                         bool bHumanReadable) const
 {
     std::string strFormattedDescription;
 
@@ -126,7 +136,7 @@ std::string CSelectionCriterion::getFormattedDescription(bool bWithTypeInfo, boo
         if (bWithTypeInfo) {
 
             // Display type info
-            CUtility::appendTitle(strFormattedDescription, getName() + ":");
+            utility::appendTitle(strFormattedDescription, getName() + ":");
 
             // States
             strFormattedDescription += "Possible states ";
@@ -155,27 +165,26 @@ std::string CSelectionCriterion::getFormattedDescription(bool bWithTypeInfo, boo
         if (bWithTypeInfo) {
             // Type Kind
             strFormattedDescription += ", type kind: ";
-            strFormattedDescription +=  _pType->isTypeInclusive() ? "inclusive" : "exclusive";
+            strFormattedDescription += _pType->isTypeInclusive() ? "inclusive" : "exclusive";
         }
 
         // Current State
-        strFormattedDescription += ", current state: " +
-                                   _pType->getFormattedState(_iState);
+        strFormattedDescription += ", current state: " + _pType->getFormattedState(_iState);
 
-         if (bWithTypeInfo) {
+        if (bWithTypeInfo) {
             // States
-            strFormattedDescription += ", states: " +
-                                       _pType->listPossibleValues();
+            strFormattedDescription += ", states: " + _pType->listPossibleValues();
         }
     }
     return strFormattedDescription;
 }
 
 // XML export
-void CSelectionCriterion::toXml(CXmlElement& xmlElement, CXmlSerializingContext& serializingContext) const
+void CSelectionCriterion::toXml(CXmlElement &xmlElement,
+                                CXmlSerializingContext &serializingContext) const
 {
     // Current Value
-    xmlElement.setAttributeString("Value", _pType->getFormattedState(_iState));
+    xmlElement.setAttribute("Value", _pType->getFormattedState(_iState));
 
     // Serialize Type node
     _pType->toXml(xmlElement, serializingContext);

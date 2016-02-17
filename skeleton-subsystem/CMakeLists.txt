@@ -1,4 +1,4 @@
-# Copyright (c) 2014, Intel Corporation
+# Copyright (c) 2015, Intel Corporation
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without modification,
@@ -26,34 +26,52 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# has been tested on 2.8 only - might work on older versions
-cmake_minimum_required(VERSION 2.8)
+# working on 2.8.12 - broken on older versions
+cmake_minimum_required(VERSION 2.8.12)
 
 project(parameter-framework-plugins-skeleton)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall -Wextra")
+if(WIN32)
+    # Force include iso646.h to support alternative operator form (and, or, not...)
+    # Such support is require by the standard and can be enabled with /Za
+    # but doing so breaks compilation of windows headers...
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4 /FIiso646.h")
+else()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Werror -Wall -Wextra -Wconversion")
+endif()
+
+# Hide symbols by default, then exposed symbols are the same in linux and windows
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN true)
+
+# Force libs and executable to all be at a known place - simplifies a lot of
+# things, expecially setting the test environment
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 
 #
 # Find PFW libraries and include directories
 #
-find_path(PFW_CORE_ROOT_DIR NAMES include/parameter/plugin/Subsystem.h)
+find_path(PFW_INCLUDE_ROOT NAMES parameter/plugin/Plugin.h)
 
-find_library(PFW_CORE_LIBRARY NAMES parameter
-    HINTS ${PFW_CORE_ROOT_DIR}/lib)
+find_library(PFW_CORE_LIBRARY NAMES parameter)
 
-find_path(PFW_CORE_INCLUDE_DIR NAMES Subsystem.h
-    HINTS ${PFW_CORE_ROOT_DIR}/include/parameter/plugin)
-find_path(PFW_XMLSERIALIZER_INCLUDE_DIR NAMES XmlSink.h
-    HINTS ${PFW_CORE_ROOT_DIR}/include/xmlserializer)
+set(PFW_INCLUDE_DIRS
+    ${PFW_INCLUDE_ROOT}/parameter/plugin
+    ${PFW_INCLUDE_ROOT}/xmlserializer
+    ${PFW_INCLUDE_ROOT}/utility)
 
-set(PFW_INCLUDE_DIRS ${PFW_CORE_INCLUDE_DIR} ${PFW_XMLSERIALIZER_INCLUDE_DIR})
-set(PFW_LIBRARIES ${PFW_CORE_LIBRARY})
-
-add_library(skeleton-subsystem SHARED
+add_library(skeleton-subsystem MODULE
 SkeletonSubsystemBuilder.cpp
 SkeletonSubsystem.cpp
 SkeletonSubsystemObject.cpp)
 
-include_directories(${PFW_INCLUDE_DIRS})
+target_include_directories(skeleton-subsystem PRIVATE ${PFW_INCLUDE_DIRS})
+target_link_libraries(skeleton-subsystem ${PFW_CORE_LIBRARY})
 
-install(TARGETS skeleton-subsystem LIBRARY DESTINATION lib)
+install(TARGETS skeleton-subsystem
+        LIBRARY DESTINATION lib
+        RUNTIME DESTINATION bin)
+
+include(../ctest/CMakeLists.txt)
+add_subdirectory(test)

@@ -33,17 +33,18 @@
 
 using std::string;
 
-CVirtualSyncer::CVirtualSyncer(const CConfigurableElement* pConfigurableElement) : _pConfigurableElement(pConfigurableElement)
+CVirtualSyncer::CVirtualSyncer(const CConfigurableElement *pConfigurableElement)
+    : _pConfigurableElement(pConfigurableElement)
 {
 }
 
 // Synchronization
-bool CVirtualSyncer::sync(CParameterBlackboard& parameterBlackboard, bool bBack, string& strError)
+bool CVirtualSyncer::sync(CParameterBlackboard &parameterBlackboard, bool bBack, string &strError)
 {
     // Synchronize to/from HW
     if (bBack) {
         // Create access context
-        CParameterAccessContext parameterAccessContext(strError, &parameterBlackboard, false);
+        CParameterAccessContext parameterAccessContext(strError, &parameterBlackboard);
 
         // Just implement back synchronization with default values
         _pConfigurableElement->setDefaultValues(parameterAccessContext);

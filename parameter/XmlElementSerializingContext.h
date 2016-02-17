@@ -38,21 +38,18 @@ class CElementLibrary;
 class CXmlElementSerializingContext : public CXmlSerializingContext
 {
 public:
-    CXmlElementSerializingContext(std::string& strError);
+    CXmlElementSerializingContext(std::string &strError);
 
     // Init
-    void set(const CElementLibrary* pElementLibrary, const std::string& strXmlFolder, const std::string& strXmlSchemaFolder);
+    void set(const CElementLibrary *pElementLibrary, const std::string &xmlUri);
 
     // ElementLibrary
-    const CElementLibrary* getElementLibrary() const;
+    const CElementLibrary *getElementLibrary() const;
 
-    // XML File Path
-    const std::string& getXmlFolder() const;
+    // Xml URI
+    const std::string &getXmlUri() const;
 
-    // Schema Path
-    const std::string& getXmlSchemaPathFolder() const;
 private:
-    const CElementLibrary* _pElementLibrary;
-    std::string _strXmlFolder;
-    std::string _strXmlSchemaFolder;
+    const CElementLibrary *_pElementLibrary{nullptr};
+    std::string _xmlUri;
 };

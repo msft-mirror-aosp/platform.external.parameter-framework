@@ -38,7 +38,8 @@ class CSelectionCriterion;
 class CSelectionCriterionRule : public CRule
 {
     // Matching rules
-    enum MatchesWhen {
+    enum MatchesWhen
+    {
         EIs,
         EIsNot,
         EIncludes,
@@ -49,47 +50,46 @@ class CSelectionCriterionRule : public CRule
     // Matching rule description
     struct SMatchingRuleDescription
     {
-        const char* pcMatchesWhen;
+        const char *pcMatchesWhen;
         bool bExclusiveTypeCompatible;
     };
 
 public:
-    CSelectionCriterionRule();
-
     // Parse
-    virtual bool parse(CRuleParser& ruleParser, std::string& strError);
+    virtual bool parse(CRuleParser &ruleParser, std::string &strError);
 
     // Dump
-    virtual void dump(std::string& strResult) const;
+    std::string dump() const override;
 
     // Rule check
     virtual bool matches() const;
 
     // From IXmlSink
-    virtual bool fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& serializingContext);
+    virtual bool fromXml(const CXmlElement &xmlElement, CXmlSerializingContext &serializingContext);
 
     // From IXmlSource
-    virtual void toXml(CXmlElement& xmlElement, CXmlSerializingContext& serializingContext) const;
+    virtual void toXml(CXmlElement &xmlElement, CXmlSerializingContext &serializingContext) const;
 
     // Class kind
     virtual std::string getKind() const;
+
 protected:
     // Content dumping
-    virtual void logValue(std::string& strValue, CErrorContext& errorContext) const;
+    std::string logValue(utility::ErrorContext &errorContext) const override;
+
 private:
     // XML MatchesWhen attribute parsing
-    bool setMatchesWhen(const std::string& strMatchesWhen, std::string& strError);
+    bool setMatchesWhen(const std::string &strMatchesWhen, std::string &strError);
 
     // Selection criterion
-    const CSelectionCriterion* _pSelectionCriterion;
+    const CSelectionCriterion *_pSelectionCriterion{nullptr};
 
     // MatchesWhen
-    MatchesWhen _eMatchesWhen;
+    MatchesWhen _eMatchesWhen{EIs};
 
     // Value
-    int32_t _iMatchValue;
+    int32_t _iMatchValue{0};
 
     // Used for XML MatchesWhen attribute parsing
     static const SMatchingRuleDescription _astMatchesWhen[ENbMatchesWhen];
 };
-

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, Intel Corporation
+ * Copyright (c) 2011-2015, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -29,6 +29,8 @@
  */
 #include "SelectionCriterionType.h"
 #include "Tokenizer.h"
+#include <sstream>
+#include <climits>
 
 #define base CElement
 
@@ -49,12 +51,16 @@ std::string CSelectionCriterionType::getKind() const
 }
 
 // From ISelectionCriterionTypeInterface
-bool CSelectionCriterionType::addValuePair(int iValue, const std::string& strValue)
+bool CSelectionCriterionType::addValuePair(int iValue, const std::string &strValue,
+                                           std::string &strError)
 {
     // Check 1 bit set only for inclusive types
     if (_bInclusive && (!iValue || (iValue & (iValue - 1)))) {
 
-        log_warning("Rejecting value pair association: 0x%X - %s for Selection Criterion Type %s", iValue, strValue.c_str(), getName().c_str());
+        std::ostringstream error;
+        error << "Rejecting value pair association: 0x" << std::hex << iValue << " - " << strValue
+              << " for Selection Criterion Type " << getName();
+        strError = error.str();
 
         return false;
     }
@@ -62,16 +68,29 @@ bool CSelectionCriterionType::addValuePair(int iValue, const std::string& strVal
     // Check already inserted
     if (_numToLitMap.find(strValue) != _numToLitMap.end()) {
 
-        log_warning("Rejecting value pair association (literal already present): 0x%X - %s for Selection Criterion Type %s", iValue, strValue.c_str(), getName().c_str());
+        std::ostringstream error;
+        error << "Rejecting value pair association (literal already present): 0x" << std::hex
+              << iValue << " - " << strValue << " for Selection Criterion Type " << getName();
+        strError = error.str();
 
         return false;
+    }
+    for (NumToLitMapConstIt it = _numToLitMap.begin(); it != _numToLitMap.end(); ++it) {
+        if (it->second == iValue) {
+            std::ostringstream error;
+            error << "Rejecting value pair association (numerical already present):"
+                  << " 0x" << std::hex << iValue << " - " << strValue
+                  << " for Selection Criterion Type " << getName();
+            strError = error.str();
+            return false;
+        }
     }
     _numToLitMap[strValue] = iValue;
 
     return true;
 }
 
-bool CSelectionCriterionType::getNumericalValue(const std::string& strValue, int& iValue) const
+bool CSelectionCriterionType::getNumericalValue(const std::string &strValue, int &iValue) const
 {
     if (_bInclusive) {
 
@@ -96,7 +115,8 @@ bool CSelectionCriterionType::getNumericalValue(const std::string& strValue, int
     return getAtomicNumericalValue(strValue, iValue);
 }
 
-bool CSelectionCriterionType::getAtomicNumericalValue(const std::string& strValue, int& iValue) const
+bool CSelectionCriterionType::getAtomicNumericalValue(const std::string &strValue,
+                                                      int &iValue) const
 {
     NumToLitMapConstIt it = _numToLitMap.find(strValue);
 
@@ -109,7 +129,7 @@ bool CSelectionCriterionType::getAtomicNumericalValue(const std::string& strValu
     return false;
 }
 
-bool CSelectionCriterionType::getLiteralValue(int iValue, std::string& strValue) const
+bool CSelectionCriterionType::getLiteralValue(int iValue, std::string &strValue) const
 {
     NumToLitMapConstIt it;
 
@@ -163,12 +183,11 @@ std::string CSelectionCriterionType::getFormattedState(int iValue) const
     if (_bInclusive) {
 
         // Need to go through all set bit
-        uint32_t uiBit;
         bool bFirst = true;
 
-        for (uiBit = 0; uiBit < sizeof(iValue) * 8; uiBit++) {
+        for (size_t bit = 0; bit < sizeof(iValue) * CHAR_BIT; bit++) {
 
-            int iSingleBitValue = iValue & (1 << uiBit);
+            int iSingleBitValue = iValue & (1 << bit);
 
             // Check if current bit is set
             if (!iSingleBitValue) {
@@ -209,10 +228,11 @@ std::string CSelectionCriterionType::getFormattedState(int iValue) const
 }
 
 // From IXmlSource
-void CSelectionCriterionType::toXml(CXmlElement& xmlElement, CXmlSerializingContext& serializingContext) const
+void CSelectionCriterionType::toXml(CXmlElement &xmlElement,
+                                    CXmlSerializingContext &serializingContext) const
 {
     // Type Kind
-    xmlElement.setAttributeString("Kind", isTypeInclusive() ? "Inclusive" : "Exclusive");
+    xmlElement.setAttribute("Kind", isTypeInclusive() ? "Inclusive" : "Exclusive");
 
     // Value pairs as children
     NumToLitMapConstIt it;
@@ -223,9 +243,9 @@ void CSelectionCriterionType::toXml(CXmlElement& xmlElement, CXmlSerializingCont
 
         xmlElement.createChild(childValuePairElement, "ValuePair");
         // Literal
-        childValuePairElement.setAttributeString("Literal", it->first);
+        childValuePairElement.setAttribute("Literal", it->first);
         // Numerical
-        childValuePairElement.setAttributeSignedInteger("Numerical", it->second);
+        childValuePairElement.setAttribute("Numerical", it->second);
     }
 
     base::toXml(xmlElement, serializingContext);

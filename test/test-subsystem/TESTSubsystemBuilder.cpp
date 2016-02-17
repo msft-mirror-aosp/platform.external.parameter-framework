@@ -27,16 +27,13 @@
 * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-#include "SubsystemLibrary.h"
-#include "NamedElementBuilderTemplate.h"
+#include "Plugin.h"
+#include "LoggingElementBuilderTemplate.h"
 #include "TESTSubsystem.h"
 
-
-extern "C"
+void PARAMETER_FRAMEWORK_PLUGIN_ENTRYPOINT_V1(CSubsystemLibrary *pSubsystemLibrary,
+                                              core::log::Logger &logger)
 {
-void getTESTSubsystemBuilder(CSubsystemLibrary* pSubsystemLibrary)
-{
-    pSubsystemLibrary->addElementBuilder("TEST",
-                                         new TNamedElementBuilderTemplate<CTESTSubsystem>());
-}
+    pSubsystemLibrary->addElementBuilder(
+        "TEST", new TLoggingElementBuilderTemplate<CTESTSubsystem>(logger));
 }

@@ -36,17 +36,15 @@
 class CParameterBlockType : public CTypeElement
 {
 public:
-    CParameterBlockType(const std::string& strName);
+    CParameterBlockType(const std::string &strName);
 
     // CElement
     virtual std::string getKind() const;
+
 private:
     virtual bool childrenAreDynamic() const;
     // Instantiation
-    virtual CInstanceConfigurableElement* doInstantiate() const;
+    virtual CInstanceConfigurableElement *doInstantiate() const;
     // Population
-    virtual void populate(CElement* pElement) const;
-    // Creating sub blocks with indexes
-    static std::string computeChildName(size_t uiChild);
+    virtual void populate(CElement *pElement) const;
 };
-

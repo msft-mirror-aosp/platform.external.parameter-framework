@@ -28,65 +28,50 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "LinearParameterAdaptation.h"
-#include "Utility.h"
 
 #define base CParameterAdaptation
 
 using std::string;
 
-CLinearParameterAdaptation::CLinearParameterAdaptation() : base("Linear"), _dSlopeNumerator(1), _dSlopeDenominator(1)
+CLinearParameterAdaptation::CLinearParameterAdaptation() : base("Linear")
 {
 }
 
-CLinearParameterAdaptation::CLinearParameterAdaptation(const string& strType) :
-    base(strType), _dSlopeNumerator(1), _dSlopeDenominator(1)
+CLinearParameterAdaptation::CLinearParameterAdaptation(const string &strType) : base(strType)
 {
 }
 
 // Element properties
-void CLinearParameterAdaptation::showProperties(string& strResult) const
+void CLinearParameterAdaptation::showProperties(string &strResult) const
 {
     base::showProperties(strResult);
 
     // SlopeNumerator
     strResult += " - SlopeNumerator: ";
-    strResult += CUtility::toString(_dSlopeNumerator);
+    strResult += std::to_string(_dSlopeNumerator);
     strResult += "\n";
 
     // SlopeDenominator
     strResult += " - SlopeDenominator: ";
-    strResult += CUtility::toString(_dSlopeDenominator);
+    strResult += std::to_string(_dSlopeDenominator);
     strResult += "\n";
 }
 
 // From IXmlSink
-bool CLinearParameterAdaptation::fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& serializingContext)
+bool CLinearParameterAdaptation::fromXml(const CXmlElement &xmlElement,
+                                         CXmlSerializingContext &serializingContext)
 {
     // Get SlopeNumerator
-    if (xmlElement.hasAttribute("SlopeNumerator")) {
+    xmlElement.getAttribute("SlopeNumerator", _dSlopeNumerator);
 
-        _dSlopeNumerator = xmlElement.getAttributeDouble("SlopeNumerator");
-
-    } else {
-        // Default
-        _dSlopeNumerator = 1;
-    }
     // Get SlopeDenominator
-    if (xmlElement.hasAttribute("SlopeDenominator")) {
-
-        _dSlopeDenominator = xmlElement.getAttributeDouble("SlopeDenominator");
+    if (xmlElement.getAttribute("SlopeDenominator", _dSlopeDenominator) &&
+        (_dSlopeDenominator == 0)) {
 
         // Avoid by 0 division errors
-        if (_dSlopeDenominator == 0) {
-
-            serializingContext.setError("SlopeDenominator attribute can't be 0 on element" + xmlElement.getPath());
-
-            return false;
-        }
-
-    } else {
-        // Default
-        _dSlopeDenominator = 1;
+        serializingContext.setError("SlopeDenominator attribute can't be 0 on element" +
+                                    xmlElement.getPath());
+        return false;
     }
 
     // Base

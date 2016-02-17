@@ -28,23 +28,37 @@
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 #include <string.h>
+#include <iterator>
+#include <algorithm>
+#include <stdexcept>
+#include <Iterator.hpp>
 #include "TESTSubsystemString.h"
 
 #define base CTESTSubsystemObject
 
-CTESTSubsystemString::CTESTSubsystemString(const std::string& strMappingValue, CInstanceConfigurableElement* pInstanceConfigurableElement, const CMappingContext& context)
-    : base(strMappingValue, pInstanceConfigurableElement, context)
+CTESTSubsystemString::CTESTSubsystemString(
+    const std::string &strMappingValue, CInstanceConfigurableElement *pInstanceConfigurableElement,
+    const CMappingContext &context, core::log::Logger &logger)
+    : base(strMappingValue, pInstanceConfigurableElement, context, logger)
 {
 }
 
-std::string CTESTSubsystemString::toString(const void* pvValue, uint32_t uiSize) const
+std::string CTESTSubsystemString::toString(const void *pvValue, size_t /*size*/) const
 {
-    (void)uiSize;
-
-    return (const char*)pvValue;
+    return (const char *)pvValue;
 }
 
-void CTESTSubsystemString::fromString(const std::string& strValue, void* pvValue, uint32_t uiSize)
+void CTESTSubsystemString::fromString(const std::string &strValue, void *pvValue, size_t size)
 {
-    strncpy((char*)pvValue, strValue.c_str(), uiSize);
+    std::size_t requiredBufferSize = strValue.length() + 1; /* Adding one for null character */
+    if (size < requiredBufferSize) {
+        throw std::logic_error("Buffer is to small: " + std::to_string(size) + " Minimum size: " +
+                               std::to_string(requiredBufferSize));
+    }
+
+    auto destination = MAKE_ARRAY_ITERATOR(static_cast<char *>(pvValue), size);
+    auto last = std::copy(begin(strValue), end(strValue), destination);
+
+    /* Adding null character */
+    *last = 0;
 }

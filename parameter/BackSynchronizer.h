@@ -31,15 +31,18 @@
 
 #include "ConfigurableElementAggregator.h"
 #include "ConfigurableElement.h"
+#include <NonCopyable.hpp>
+
 #include <list>
 
 class CParameterBlackboard;
 
-class CBackSynchronizer
+class CBackSynchronizer : private utility::NonCopyable
 {
 public:
-    CBackSynchronizer(const CConfigurableElement* pConfigurableElement)
-        : _configurableElementAggregator(_needingBackSyncList, &CConfigurableElement::hasNoValidDomainAssociated)
+    CBackSynchronizer(const CConfigurableElement *pConfigurableElement)
+        : _configurableElementAggregator(_needingBackSyncList,
+                                         &CConfigurableElement::hasNoValidDomainAssociated)
     {
         // Aggegate elements
         _configurableElementAggregator.aggegate(pConfigurableElement);
@@ -47,14 +50,13 @@ public:
 
     // Back synchronization
     virtual void sync() = 0;
-    virtual ~CBackSynchronizer() {}
+    virtual ~CBackSynchronizer() = default;
 
 protected:
     // Aggregate list
-    std::list<const CConfigurableElement*> _needingBackSyncList;
+    std::list<const CConfigurableElement *> _needingBackSyncList;
 
 private:
     // Aggegator
     CConfigurableElementAggregator _configurableElementAggregator;
 };
-

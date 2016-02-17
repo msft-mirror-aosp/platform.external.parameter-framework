@@ -91,14 +91,16 @@ public:
     bool getForceNoRemoteInterface() const;
     void setForceNoRemoteInterface(bool bForceNoRemoteInterface);
 
-    void setFailureOnMissingSubsystem(bool bFail);
+    bool setFailureOnMissingSubsystem(bool bFail, std::string& strError);
     bool getFailureOnMissingSubsystem() const;
 
-    void setFailureOnFailedSettingsLoad(bool bFail);
-    bool getFailureOnFailedSettingsLoad();
+    bool setFailureOnFailedSettingsLoad(bool bFail, std::string& strError);
+    bool getFailureOnFailedSettingsLoad() const;
 
-    void setSchemaFolderLocation(const std::string& strSchemaFolderLocation);
-    void setValidateSchemasOnStart(bool bValidate);
+    void setSchemaUri(const std::string& schemaUri);
+    const std::string& getSchemaUri() const;
+
+    bool setValidateSchemasOnStart(bool bValidate, std::string &strError);
     bool getValidateSchemasOnStart() const;
 
     // Tuning mode
@@ -180,11 +182,16 @@ public:
 // CParameterMgrFullConnector
 // Logger interface
 %feature("director") ILogger;
-%nestedworkaround CParameterMgrFullConnector::ILogger;
+// The nested workaround is used to tell swig to ignore the
+// inner class definition that would be redundant with the fake outer class.
+// It would have been useful if ParameterMgrFullConnector.h was included
+// (as opposed to copying the class definition in this .i).
+// As their is no conflicting ILogger definition, this workaround is useless.
 class ILogger
 {
     public:
-        virtual void log(bool bIsWarning, const std::string& strLog) = 0;
+        virtual void info(const std::string& log) = 0;
+        virtual void warning(const std::string& log) = 0;
     protected:
         virtual ~ILogger() {}
 };
@@ -199,7 +206,7 @@ class ISelectionCriterionTypeInterface
 %}
 
 public:
-    virtual bool addValuePair(int iValue, const std::string& strValue) = 0;
+    virtual bool addValuePair(int iValue, const std::string& strValue, std::string& strError) = 0;
     virtual bool getNumericalValue(const std::string& strValue, int& iValue) const = 0;
     virtual bool getLiteralValue(int iValue, std::string& strValue) const = 0;
     virtual bool isTypeInclusive() const = 0;

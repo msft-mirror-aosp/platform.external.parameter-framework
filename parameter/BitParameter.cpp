@@ -39,7 +39,8 @@
 
 using std::string;
 
-CBitParameter::CBitParameter(const string& strName, const CTypeElement* pTypeElement) : base(strName, pTypeElement)
+CBitParameter::CBitParameter(const string &strName, const CTypeElement *pTypeElement)
+    : base(strName, pTypeElement)
 {
 }
 
@@ -50,35 +51,37 @@ CInstanceConfigurableElement::Type CBitParameter::getType() const
 }
 
 // Size
-uint32_t CBitParameter::getBelongingBlockSize() const
+size_t CBitParameter::getBelongingBlockSize() const
 {
-    return static_cast<const CBitParameterBlock*>(getParent())->getSize();
+    return static_cast<const CBitParameterBlock *>(getParent())->getSize();
 }
 
 // Instantiation, allocation
-uint32_t CBitParameter::getFootPrint() const
+size_t CBitParameter::getFootPrint() const
 {
     // Allocation done at parent level
     return 0;
 }
 
 // Actual parameter access (tuning)
-bool CBitParameter::doSetValue(const string& strValue, uint32_t uiOffset, CParameterAccessContext& parameterAccessContext) const
+bool CBitParameter::doSetValue(const string &strValue, size_t offset,
+                               CParameterAccessContext &parameterAccessContext) const
 {
-    return doSet(strValue, uiOffset, parameterAccessContext);
+    return doSet(strValue, offset, parameterAccessContext);
 }
 
-void CBitParameter::doGetValue(string& strValue, uint32_t uiOffset, CParameterAccessContext& parameterAccessContext) const
+void CBitParameter::doGetValue(string &strValue, size_t offset,
+                               CParameterAccessContext &parameterAccessContext) const
 {
-    doGet(strValue, uiOffset, parameterAccessContext);
+    doGet(strValue, offset, parameterAccessContext);
 }
 
 /// Value access
-// Boolean access
-bool CBitParameter::accessAsBoolean(bool& bValue, bool bSet, CParameterAccessContext& parameterAccessContext) const
+bool CBitParameter::access(bool &bValue, bool bSet,
+                           CParameterAccessContext &parameterAccessContext) const
 {
     // Check boolean access validity here
-    if (static_cast<const CBitParameterType*>(getTypeElement())->getBitSize() != 1) {
+    if (static_cast<const CBitParameterType *>(getTypeElement())->getBitSize() != 1) {
 
         parameterAccessContext.setError("Type mismatch");
         appendParameterPathToError(parameterAccessContext);
@@ -94,7 +97,7 @@ bool CBitParameter::accessAsBoolean(bool& bValue, bool bSet, CParameterAccessCon
         uiValue = bValue;
     }
 
-    if (!accessAsInteger(uiValue, bSet, parameterAccessContext)) {
+    if (!access(uiValue, bSet, parameterAccessContext)) {
 
         return false;
     }
@@ -107,15 +110,15 @@ bool CBitParameter::accessAsBoolean(bool& bValue, bool bSet, CParameterAccessCon
     return true;
 }
 
-// Integer Access
-bool CBitParameter::accessAsInteger(uint32_t& uiValue, bool bSet, CParameterAccessContext& parameterAccessContext) const
+bool CBitParameter::access(uint32_t &uiValue, bool bSet,
+                           CParameterAccessContext &parameterAccessContext) const
 {
-    uint32_t uiOffset = getOffset();
+    size_t offset = getOffset();
 
     if (bSet) {
 
         // Set Value
-        if (!doSet(uiValue, uiOffset, parameterAccessContext)) {
+        if (!doSet(uiValue, offset, parameterAccessContext)) {
 
             appendParameterPathToError(parameterAccessContext);
             return false;
@@ -129,50 +132,54 @@ bool CBitParameter::accessAsInteger(uint32_t& uiValue, bool bSet, CParameterAcce
     } else {
 
         // Convert
-        doGet(uiValue, uiOffset, parameterAccessContext);
+        doGet(uiValue, offset, parameterAccessContext);
     }
     return true;
 }
 
 template <typename type>
-bool CBitParameter::doSet(type value, uint32_t uiOffset, CParameterAccessContext& parameterAccessContext) const
+bool CBitParameter::doSet(type value, size_t offset,
+                          CParameterAccessContext &parameterAccessContext) const
 {
     uint64_t uiData = 0;
 
     // Read/modify/write
-    CParameterBlackboard* pBlackboard = parameterAccessContext.getParameterBlackboard();
+    CParameterBlackboard *pBlackboard = parameterAccessContext.getParameterBlackboard();
 
     // Beware this code works on little endian architectures only!
-    pBlackboard->readInteger(&uiData, getBelongingBlockSize(), uiOffset, parameterAccessContext.isBigEndianSubsystem());
+    pBlackboard->readInteger(&uiData, getBelongingBlockSize(), offset);
 
     // Convert
-    if (!static_cast<const CBitParameterType*>(getTypeElement())->toBlackboard(value, uiData, parameterAccessContext)) {
+    if (!static_cast<const CBitParameterType *>(getTypeElement())
+             ->toBlackboard(value, uiData, parameterAccessContext)) {
 
         return false;
     }
     // Write blackboard
-    pBlackboard->writeInteger(&uiData, getBelongingBlockSize(), uiOffset, parameterAccessContext.isBigEndianSubsystem());
+    pBlackboard->writeInteger(&uiData, getBelongingBlockSize(), offset);
 
     return true;
 }
 
 template <typename type>
-void CBitParameter::doGet(type& value, uint32_t uiOffset, CParameterAccessContext& parameterAccessContext) const
+void CBitParameter::doGet(type &value, size_t offset,
+                          CParameterAccessContext &parameterAccessContext) const
 {
     uint64_t uiData = 0;
 
     // Read blackboard
-    const CParameterBlackboard* pBlackboard = parameterAccessContext.getParameterBlackboard();
+    const CParameterBlackboard *pBlackboard = parameterAccessContext.getParameterBlackboard();
 
     // Beware this code works on little endian architectures only!
-    pBlackboard->readInteger(&uiData, getBelongingBlockSize(), uiOffset, parameterAccessContext.isBigEndianSubsystem());
+    pBlackboard->readInteger(&uiData, getBelongingBlockSize(), offset);
 
     // Convert
-    static_cast<const CBitParameterType*>(getTypeElement())->fromBlackboard(value, uiData, parameterAccessContext);
+    static_cast<const CBitParameterType *>(getTypeElement())
+        ->fromBlackboard(value, uiData, parameterAccessContext);
 }
 
 // AreaConfiguration creation
-CAreaConfiguration* CBitParameter::createAreaConfiguration(const CSyncerSet* pSyncerSet) const
+CAreaConfiguration *CBitParameter::createAreaConfiguration(const CSyncerSet *pSyncerSet) const
 {
     return new CBitwiseAreaConfiguration(this, pSyncerSet);
 }
@@ -181,5 +188,5 @@ CAreaConfiguration* CBitParameter::createAreaConfiguration(const CSyncerSet* pSy
 uint64_t CBitParameter::merge(uint64_t uiOriginData, uint64_t uiNewData) const
 {
     // Convert
-    return static_cast<const CBitParameterType*>(getTypeElement())->merge(uiOriginData, uiNewData);
+    return static_cast<const CBitParameterType *>(getTypeElement())->merge(uiOriginData, uiNewData);
 }

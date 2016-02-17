@@ -29,22 +29,20 @@
  */
 
 #include "ParameterFramework.h"
-#include "FullIo.hpp"
 
-#define CATCH_CONFIG_MAIN  // This tells Catch to provide a main()
+#include "TmpFile.hpp"
+
+#define CATCH_CONFIG_MAIN // This tells Catch to provide a main()
 #include <catch.hpp>
 
 #include <string>
 #include <memory>
 #include <vector>
+#include <array>
 
 #include <cstring>
 #include <cerrno>
 #include <climits>
-extern "C"
-{
-#include <unistd.h>
-}
 
 struct Test
 {
@@ -57,7 +55,7 @@ struct Test
 
     void REQUIRE_FAILURE(bool success)
     {
-        THEN("It should be an error") {
+        THEN ("It should be an error") {
             INFO("Previous pfw log: \n" + logLines);
             CAPTURE(pfwGetLastError(pfw));
             CHECK(not success);
@@ -67,7 +65,7 @@ struct Test
 
     void REQUIRE_SUCCESS(bool success)
     {
-        THEN("It should be a success") {
+        THEN ("It should be a success") {
             INFO("Previous pfw log: \n" + logLines);
             CAPTURE(pfwGetLastError(pfw));
             CHECK(success);
@@ -75,34 +73,27 @@ struct Test
         }
     }
 
-    /** Class to create a temporary file */
-    class TmpFile
+    /** Wrap utility::TmpFile to add an implicit convertion to the temporary file.
+     *
+     * This avoids dozens of .getPath() in the following tests. */
+    class TmpFile : private parameterFramework::utility::TmpFile
     {
-    public:
-        TmpFile(const std::string &content) {
-            char tmpName[] = "./tmpPfwUnitTestXXXXXX";
-            mFd = mkstemp(tmpName);
-            CAPTURE(errno);
-            REQUIRE(mFd != -1);
-            mPath = tmpName;
-            REQUIRE(utility::fullWrite(mFd, content.c_str(), content.length()));
-        }
-        ~TmpFile() {
-            CHECK(close(mFd) != -1);
-            unlink(mPath.c_str());
-        }
-        operator const char *() const { return mPath.c_str(); }
-        const std::string &path() const { return mPath; }
     private:
-        std::string mPath;
-        int mFd;
+        using Base = parameterFramework::utility::TmpFile;
+
+    public:
+        using Base::TmpFile;
+
+        using Base::getPath;
+        /** Implicitly convert to the path of the temporary file. */
+        operator const char *() const { return getPath().c_str(); }
     };
 
     /** Log in logLines. */
     static void logCb(void *voidLogLines, PfwLogLevel level, const char *logLine)
     {
         std::string &logLines = *reinterpret_cast<std::string *>(voidLogLines);
-        switch(level) {
+        switch (level) {
         case pfwLogWarning:
             logLines += "Warning: ";
             break;
@@ -118,25 +109,24 @@ struct Test
 
     /** Pfw handler used in the tests. */
     PfwHandler *pfw;
-
 };
 
-TEST_CASE_METHOD(Test, "Parameter-framework c api use") {
+TEST_CASE_METHOD(Test, "Parameter-framework c api use")
+{
     // Create criteria
     const char *letterList[] = {"a", "b", "c", NULL};
     const char *numberList[] = {"1", "2", "3", NULL};
     const PfwCriterion criteria[] = {
-        {"inclusiveCrit", true, letterList},
-        {"exclusiveCrit", false, numberList},
+        {"inclusiveCrit", true, letterList}, {"exclusiveCrit", false, numberList},
     };
-    size_t criterionNb = sizeof(criteria)/sizeof(criteria[0]);
+    size_t criterionNb = sizeof(criteria) / sizeof(criteria[0]);
     PfwLogger logger = {&logLines, logCb};
 
     // Create valid pfw config file
     const char *intParameterPath = "/test/system/integer";
     const char *stringParameterPath = "/test/system/string";
     TmpFile system("<?xml version='1.0' encoding='UTF-8'?>\
-        <Subsystem Name='system' Type='Virtual' Endianness='Little'>\
+        <Subsystem Name='system' Type='Virtual'>\
             <ComponentLibrary/>\
             <InstanceDefinition>\
                 <IntegerParameter Name='integer' Size='32' Signed='true' Max='100'/>\
@@ -145,70 +135,61 @@ TEST_CASE_METHOD(Test, "Parameter-framework c api use") {
         </Subsystem>");
     TmpFile libraries("<?xml version='1.0' encoding='UTF-8'?>\
         <SystemClass Name='test'>\
-            <SubsystemInclude Path='" + system.path() + "'/>\
+            <SubsystemInclude Path='" +
+                      system.getPath() + "'/>\
         </SystemClass>");
     TmpFile config("<?xml version='1.0' encoding='UTF-8'?>\
         <ParameterFrameworkConfiguration\
             SystemClassName='test' TuningAllowed='false'>\
             <SubsystemPlugins/>\
-            <StructureDescriptionFileLocation Path='" + libraries.path() + "'/>\
+            <StructureDescriptionFileLocation Path='" +
+                   libraries.getPath() + "'/>\
         </ParameterFrameworkConfiguration>");
 
-    GIVEN("A created parameter framework") {
+    GIVEN ("A created parameter framework") {
         pfw = pfwCreate();
         REQUIRE(pfw != NULL);
 
-        THEN("Error message should be empty") {
+        THEN ("Error message should be empty") {
             CHECK(empty(pfwGetLastError(pfw)));
         }
 
-        WHEN("The pfw is started without an handler") {
-            CHECK(not pfwStart(NULL, config, criteria, criterionNb, &logger));
-        }
-        WHEN("The pfw is started without a config path") {
-            REQUIRE_FAILURE(pfwStart(pfw, NULL, criteria, criterionNb, &logger));
-        }
-        WHEN("The pfw is started without an existent file") {
+        WHEN ("The pfw is started without an existent file") {
             REQUIRE_FAILURE(pfwStart(pfw, "/doNotExist", criteria, criterionNb, &logger));
         }
 
-        WHEN("The pfw is started without a criteria list") {
-            REQUIRE_FAILURE(pfwStart(pfw, config, NULL, criterionNb, &logger));
-        }
-        WHEN("The pfw is started with duplicated criterion value") {
+        WHEN ("The pfw is started with duplicated criterion value") {
             const PfwCriterion duplicatedCriteria[] = {
-                {"duplicated name", true, letterList},
-                {"duplicated name", false, numberList},
+                {"duplicated name", true, letterList}, {"duplicated name", false, numberList},
             };
             REQUIRE_FAILURE(pfwStart(pfw, config, duplicatedCriteria, 2, &logger));
         }
-        WHEN("The pfw is started with duplicated criterion value state") {
-            const char * values[] = {"a", "a", NULL};
+        WHEN ("The pfw is started with duplicated criterion value state") {
+            const char *values[] = {"a", "a", NULL};
             const PfwCriterion duplicatedCriteria[] = {{"name", true, values}};
 
-            WHEN("Using test logger") {
+            WHEN ("Using test logger") {
                 REQUIRE_FAILURE(pfwStart(pfw, config, duplicatedCriteria, 1, &logger));
             }
-            WHEN("Using default logger") {
+            WHEN ("Using default logger") {
                 // Test coverage of default logger warning
                 REQUIRE_FAILURE(pfwStart(pfw, config, duplicatedCriteria, 1, NULL));
             }
         }
-        WHEN("The pfw is started with NULL name criterion") {
+        WHEN ("The pfw is started with NULL name criterion") {
             const PfwCriterion duplicatedCriteria[] = {{NULL, true, letterList}};
             REQUIRE_FAILURE(pfwStart(pfw, config, duplicatedCriteria, 1, &logger));
         }
-        WHEN("The pfw is started with NULL criterion state list") {
+        WHEN ("The pfw is started with NULL criterion state list") {
             const PfwCriterion duplicatedCriteria[] = {{"name", true, NULL}};
             REQUIRE_FAILURE(pfwStart(pfw, config, duplicatedCriteria, 1, &logger));
         }
-        GIVEN("A criteria with lots of values")
-        {
+        GIVEN ("A criteria with lots of values") {
             // Build a criterion with as many value as there is bits in int.
             std::vector<char> names(sizeof(int) * CHAR_BIT + 1, 'a');
             names.back() = '\0';
             std::vector<const char *> values(names.size());
-            for(size_t i = 0; i < values.size(); ++i) {
+            for (size_t i = 0; i < values.size(); ++i) {
                 values[i] = &names[i];
             }
             values.back() = NULL;
@@ -240,66 +221,56 @@ TEST_CASE_METHOD(Test, "Parameter-framework c api use") {
              */
             const PfwCriterion duplicatedCriteria[] = {{"name", true, &values[0]}};
 
-            WHEN("The pfw is started with a too long criterion state list") {
+            WHEN ("The pfw is started with a too long criterion state list") {
                 REQUIRE_FAILURE(pfwStart(pfw, config, duplicatedCriteria, 1, &logger));
             }
-            WHEN("The pfw is started with max length criterion state list") {
+            WHEN ("The pfw is started with max length criterion state list") {
                 values[values.size() - 2] = NULL; // Hide last value
                 REQUIRE_SUCCESS(pfwStart(pfw, config, duplicatedCriteria, 1, &logger));
             }
         }
 
-        WHEN("The pfw is started with zero criteria") {
+        WHEN ("The pfw is started with zero criteria") {
             REQUIRE_SUCCESS(pfwStart(pfw, config, criteria, 0, &logger));
         }
 
-        WHEN("The pfw is started twice a pfw") {
+        WHEN ("The pfw is started twice a pfw") {
             REQUIRE_SUCCESS(pfwStart(pfw, config, criteria, criterionNb, &logger));
             REQUIRE_FAILURE(pfwStart(pfw, config, criteria, criterionNb, &logger));
         }
 
-        WHEN("The pfw is started without a logger callback") {
-            PfwLogger noLog = { NULL, NULL };
+        WHEN ("The pfw is started without a logger callback") {
+            PfwLogger noLog = {NULL, NULL};
             REQUIRE_SUCCESS(pfwStart(pfw, config, criteria, criterionNb, &noLog));
         }
-        WHEN("The pfw is started with default logger") {
+        WHEN ("The pfw is started with default logger") {
             REQUIRE_SUCCESS(pfwStart(pfw, config, criteria, criterionNb, NULL));
         }
 
-        WHEN("Get criterion of a stopped pfw") {
+        WHEN ("Get criterion of a stopped pfw") {
             int value;
             REQUIRE_FAILURE(pfwGetCriterion(pfw, criteria[0].name, &value));
         }
-        WHEN("Set criterion of a stopped pfw") {
+        WHEN ("Set criterion of a stopped pfw") {
             REQUIRE_FAILURE(pfwSetCriterion(pfw, criteria[0].name, 1));
         }
-        WHEN("Commit criteria of a stopped pfw") {
+        WHEN ("Commit criteria of a stopped pfw") {
             REQUIRE_FAILURE(pfwApplyConfigurations(pfw));
         }
 
-        WHEN("Bind parameter with a stopped pfw") {
+        WHEN ("Bind parameter with a stopped pfw") {
             REQUIRE(pfwBindParameter(pfw, intParameterPath) == NULL);
         }
 
-        WHEN("The pfw is started correctly")
-        {
+        WHEN ("The pfw is started correctly") {
             REQUIRE_SUCCESS(pfwStart(pfw, config, criteria, criterionNb, &logger));
             int value;
 
-            WHEN("Get criterion without an handle") {
-                REQUIRE(not pfwGetCriterion(NULL, criteria[0].name, &value));
-            }
-            WHEN("Get criterion without a name") {
-                REQUIRE_FAILURE(pfwGetCriterion(pfw, NULL, &value));
-            }
-            WHEN("Get criterion without an output value") {
-                REQUIRE_FAILURE(pfwGetCriterion(pfw, criteria[0].name, NULL));
-            }
-            WHEN("Get not existing criterion") {
+            WHEN ("Get not existing criterion") {
                 REQUIRE_FAILURE(pfwGetCriterion(pfw, "Do not exist", &value));
             }
-            THEN("All criterion should value 0") {
-                for(size_t i = 0; i < criterionNb; ++i) {
+            THEN ("All criterion should value 0") {
+                for (size_t i = 0; i < criterionNb; ++i) {
                     const char *criterionName = criteria[i].name;
                     CAPTURE(criterionName);
                     REQUIRE_SUCCESS(pfwGetCriterion(pfw, criterionName, &value));
@@ -307,69 +278,53 @@ TEST_CASE_METHOD(Test, "Parameter-framework c api use") {
                 }
             }
 
-            WHEN("Set criterion without an handle") {
-                REQUIRE(not pfwSetCriterion(NULL, criteria[0].name, 1));
-            }
-            WHEN("Set criterion without a name") {
-                REQUIRE_FAILURE(pfwSetCriterion(pfw, NULL, 2));
-            }
-            WHEN("Set not existing criterion") {
+            WHEN ("Set not existing criterion") {
                 REQUIRE_FAILURE(pfwSetCriterion(pfw, "Do not exist", 3));
             }
-            WHEN("Set criterion value") {
-                for(size_t i = 0; i < criterionNb; ++i) {
+            WHEN ("Set criterion value") {
+                for (size_t i = 0; i < criterionNb; ++i) {
                     const char *criterionName = criteria[i].name;
                     CAPTURE(criterionName);
                     REQUIRE_SUCCESS(pfwSetCriterion(pfw, criterionName, 3));
                 }
-                THEN("Get criterion value should return what was set") {
-                    for(size_t i = 0; i < criterionNb; ++i) {
+                THEN ("Get criterion value should return what was set") {
+                    for (size_t i = 0; i < criterionNb; ++i) {
                         const char *criterionName = criteria[i].name;
                         CAPTURE(criterionName);
                         REQUIRE_SUCCESS(pfwGetCriterion(pfw, criterionName, &value));
                         REQUIRE(value == 3);
                     }
                 }
+                WHEN ("Set a new value to a criterion without committing first") {
+                    const char *criterionName = criteria[0].name;
+                    REQUIRE_SUCCESS(pfwSetCriterion(pfw, criterionName, 0));
+                    THEN ("A warning message should have been displayed") {
+                        INFO("Previous pfw log: \n" + logLines);
+                        size_t logPos = logLines.find("Warning: Selection criterion "
+                                                      "'inclusiveCrit' has been modified 1 time(s)"
+                                                      " without any configuration application");
+                        CHECK(logPos != std::string::npos);
+                    }
+                }
             }
-            WHEN("Commit criteria without a pfw") {
-                REQUIRE(not pfwApplyConfigurations(NULL));
-            }
-            WHEN("Commit criteria of a started pfw") {
+            WHEN ("Commit criteria of a started pfw") {
                 REQUIRE_SUCCESS(pfwApplyConfigurations(pfw));
             }
-
-            WHEN("Bind parameter without a pfw") {
-                REQUIRE(pfwBindParameter(NULL, intParameterPath) == NULL);
-            }
-            WHEN("Bind parameter without a path") {
-                REQUIRE_FAILURE(pfwBindParameter(pfw, NULL) != NULL);
-            }
-            WHEN("Bind a non existing parameter") {
+            WHEN ("Bind a non existing parameter") {
                 REQUIRE_FAILURE(pfwBindParameter(pfw, "do/not/exist") != NULL);
             }
 
-            WHEN("Set an int parameter without a parameter handle") {
-                REQUIRE(not pfwSetIntParameter(NULL, value));
-            }
-            WHEN("Get an int parameter without a parameter handle") {
-                REQUIRE(not pfwGetIntParameter(NULL, &value));
-            }
-
-            GIVEN("An integer parameter handle") {
+            GIVEN ("An integer parameter handle") {
                 PfwParameterHandler *param = pfwBindParameter(pfw, intParameterPath);
                 REQUIRE_SUCCESS(param != NULL);
 
-                WHEN("Get an int parameter without an output value") {
-                    REQUIRE_FAILURE(pfwGetIntParameter(param, NULL));
-                }
-
-                WHEN("Set parameter out of range") {
+                WHEN ("Set parameter out of range") {
                     REQUIRE_FAILURE(pfwSetIntParameter(param, 101));
                 }
 
-                WHEN("Set parameter") {
+                WHEN ("Set parameter") {
                     REQUIRE_SUCCESS(pfwSetIntParameter(param, 11));
-                    THEN("Get parameter should return what was set") {
+                    THEN ("Get parameter should return what was set") {
                         REQUIRE_SUCCESS(pfwGetIntParameter(param, &value));
                         REQUIRE(value == 11);
                     }
@@ -378,25 +333,21 @@ TEST_CASE_METHOD(Test, "Parameter-framework c api use") {
                 pfwUnbindParameter(param);
             }
 
-            GIVEN("An string parameter handle") {
+            GIVEN ("An string parameter handle") {
                 PfwParameterHandler *param = pfwBindParameter(pfw, stringParameterPath);
                 REQUIRE_SUCCESS(param != NULL);
 
-                WHEN("Get an int parameter without an output value") {
-                    REQUIRE_FAILURE(pfwGetStringParameter(param, NULL));
-                }
-
-                WHEN("Set parameter out of range") {
+                WHEN ("Set parameter out of range") {
                     REQUIRE_FAILURE(pfwSetStringParameter(param, "ko_1234567"));
                 }
 
-                WHEN("Set parameter") {
-                    const char *value;
+                WHEN ("Set parameter") {
+                    char *value;
                     REQUIRE_SUCCESS(pfwSetStringParameter(param, "ok"));
-                    THEN("Get parameter should return what was set") {
+                    THEN ("Get parameter should return what was set") {
                         REQUIRE_SUCCESS(pfwGetStringParameter(param, &value));
                         REQUIRE(value == std::string("ok"));
-                        pfwFree((void *)value);
+                        pfwFree(value);
                     }
                 }
 
@@ -405,11 +356,5 @@ TEST_CASE_METHOD(Test, "Parameter-framework c api use") {
         }
 
         pfwDestroy(pfw);
-    }
-}
-
-SCENARIO("Get last error without a pfw") {
-    THEN("Should return NULL") {
-        CHECK(pfwGetLastError(NULL) == NULL);
     }
 }

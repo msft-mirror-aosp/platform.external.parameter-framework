@@ -29,59 +29,54 @@
  */
 
 #include "LogarithmicParameterAdaptation.h"
-#include "Utility.h"
-#include <math.h>
+#include <cmath>
+#include <limits>
+#include <algorithm>
 
 #define base CLinearParameterAdaptation
 
-// M_E is the base of the natural logarithm for 'e' from math.h
-CLogarithmicParameterAdaptation::CLogarithmicParameterAdaptation() : base("Logarithmic"),
-    _dLogarithmBase(M_E), _dFloorValue(-INFINITY)
+CLogarithmicParameterAdaptation::CLogarithmicParameterAdaptation() : base("Logarithmic")
 {
+    static_assert(std::numeric_limits<double>::is_iec559,
+                  "Only double-precision floating points that are compliant with"
+                  " IEC 559 (aka IEEE 754) are supported");
 }
 
 // Element properties
-void CLogarithmicParameterAdaptation::showProperties(std::string& strResult) const
+void CLogarithmicParameterAdaptation::showProperties(std::string &strResult) const
 {
     base::showProperties(strResult);
 
     strResult += " - LogarithmBase: ";
-    strResult += CUtility::toString(_dLogarithmBase);
+    strResult += std::to_string(_dLogarithmBase);
     strResult += "\n";
     strResult += " - FloorValue: ";
-    strResult += CUtility::toString(_dFloorValue);
+    strResult += std::to_string(_dFloorValue);
     strResult += "\n";
 }
 
-bool CLogarithmicParameterAdaptation::fromXml(const CXmlElement& xmlElement,
-                                            CXmlSerializingContext& serializingContext)
+bool CLogarithmicParameterAdaptation::fromXml(const CXmlElement &xmlElement,
+                                              CXmlSerializingContext &serializingContext)
 {
-
-    if (xmlElement.hasAttribute("LogarithmBase")) {
-
-        _dLogarithmBase = xmlElement.getAttributeDouble("LogarithmBase");
-
+    if (xmlElement.getAttribute("LogarithmBase", _dLogarithmBase) &&
+        (_dLogarithmBase <= 0 || _dLogarithmBase == 1)) {
         // Avoid negative and 1 values
-        if (_dLogarithmBase <= 0 || _dLogarithmBase == 1) {
-            serializingContext.setError("LogarithmBase attribute cannot be negative or 1 on element"
-                                        + xmlElement.getPath());
+        serializingContext.setError("LogarithmBase attribute cannot be negative or 1 on element" +
+                                    xmlElement.getPath());
 
-            return false;
-        }
+        return false;
     }
 
-    if (xmlElement.hasAttribute("FloorValue")) {
-        _dFloorValue = xmlElement.getAttributeDouble("FloorValue");
-    }
+    xmlElement.getAttribute("FloorValue", _dFloorValue);
+
     // Base
     return base::fromXml(xmlElement, serializingContext);
 }
 
-
-int64_t CLogarithmicParameterAdaptation::fromUserValue(double dValue) const
+int64_t CLogarithmicParameterAdaptation::fromUserValue(double value) const
 {
-    return fmax(round(base::fromUserValue(log(dValue) / log(_dLogarithmBase))),
-                        _dFloorValue);
+    return std::max(base::fromUserValue(log(value) / log(_dLogarithmBase)),
+                    static_cast<int64_t>(_dFloorValue));
 }
 
 double CLogarithmicParameterAdaptation::toUserValue(int64_t iValue) const

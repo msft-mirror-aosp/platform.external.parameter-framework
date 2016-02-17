@@ -42,7 +42,7 @@
 using std::string;
 using std::ostringstream;
 
-CIntegerParameterType::CIntegerParameterType(const string& strName) : base(strName), _uiMin(0), _uiMax(uint32_t(-1))
+CIntegerParameterType::CIntegerParameterType(const string &strName) : base(strName)
 {
 }
 
@@ -59,7 +59,7 @@ bool CIntegerParameterType::childrenAreDynamic() const
 }
 
 // Element properties
-void CIntegerParameterType::showProperties(string& strResult) const
+void CIntegerParameterType::showProperties(string &strResult) const
 {
     base::showProperties(strResult);
 
@@ -70,16 +70,16 @@ void CIntegerParameterType::showProperties(string& strResult) const
 
     // Min
     strResult += "Min: ";
-    strResult += _bSigned ? CUtility::toString((int32_t)_uiMin) : CUtility::toString(_uiMin);
+    strResult += _bSigned ? std::to_string((int32_t)_uiMin) : std::to_string(_uiMin);
     strResult += "\n";
 
     // Max
     strResult += "Max: ";
-    strResult += _bSigned ? CUtility::toString((int32_t)_uiMax) : CUtility::toString(_uiMax);
+    strResult += _bSigned ? std::to_string((int32_t)_uiMax) : std::to_string(_uiMax);
     strResult += "\n";
 
     // Check if there's an adaptation object available
-    const CParameterAdaptation* pParameterAdaption = getParameterAdaptation();
+    const CParameterAdaptation *pParameterAdaption = getParameterAdaptation();
 
     if (pParameterAdaption) {
 
@@ -90,56 +90,46 @@ void CIntegerParameterType::showProperties(string& strResult) const
     }
 }
 
-bool CIntegerParameterType::fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& serializingContext)
+bool CIntegerParameterType::fromXml(const CXmlElement &xmlElement,
+                                    CXmlSerializingContext &serializingContext)
 {
     // Sign
-    _bSigned = xmlElement.getAttributeBoolean("Signed");
+    xmlElement.getAttribute("Signed", _bSigned);
 
     // Size in bits
-    uint32_t uiSizeInBits = xmlElement.getAttributeInteger("Size");
+    size_t sizeInBits = 0;
+    xmlElement.getAttribute("Size", sizeInBits);
 
     // Size
-    setSize(uiSizeInBits / 8);
+    setSize(sizeInBits / 8);
 
     // Min / Max
+    // TODO: Make IntegerParameter template
     if (_bSigned) {
 
         // Signed means we have one less util bit
-        uiSizeInBits--;
+        sizeInBits--;
 
-        if (xmlElement.hasAttribute("Min")) {
+        if (!xmlElement.getAttribute("Min", (int32_t &)_uiMin)) {
 
-            _uiMin = (uint32_t)xmlElement.getAttributeSignedInteger("Min");
-        } else {
-
-            _uiMin = 1UL << uiSizeInBits;
-
+            _uiMin = 1U << sizeInBits;
         }
-        signExtend((int32_t&)_uiMin);
 
-        if (xmlElement.hasAttribute("Max")) {
+        if (!xmlElement.getAttribute("Max", (int32_t &)_uiMax)) {
 
-            _uiMax = (uint32_t)xmlElement.getAttributeSignedInteger("Max");
-
-            signExtend((int32_t&)_uiMax);
-        } else {
-
-            _uiMax = (1UL << uiSizeInBits) - 1;
+            _uiMax = (1U << sizeInBits) - 1;
         }
+        signExtend((int32_t &)_uiMin);
+        signExtend((int32_t &)_uiMax);
     } else {
-        if (xmlElement.hasAttribute("Min")) {
-
-            _uiMin = xmlElement.getAttributeInteger("Min");
-        } else {
+        if (!xmlElement.getAttribute("Min", _uiMin)) {
 
             _uiMin = 0;
         }
-        if (xmlElement.hasAttribute("Max")) {
 
-            _uiMax = xmlElement.getAttributeInteger("Max");
-        } else {
+        if (!xmlElement.getAttribute("Max", _uiMax)) {
 
-            _uiMax = (uint32_t)-1L >> (8 * sizeof(uint32_t) - uiSizeInBits);
+            _uiMax = ~0U >> (8 * sizeof(size_t) - sizeInBits);
         }
     }
 
@@ -148,10 +138,11 @@ bool CIntegerParameterType::fromXml(const CXmlElement& xmlElement, CXmlSerializi
 }
 
 // Conversion (tuning)
-bool CIntegerParameterType::toBlackboard(const string& strValue, uint32_t& uiValue, CParameterAccessContext& parameterAccessContext) const
+bool CIntegerParameterType::toBlackboard(const string &strValue, uint32_t &uiValue,
+                                         CParameterAccessContext &parameterAccessContext) const
 {
     // Hexa
-    bool bValueProvidedAsHexa = !strValue.compare(0, 2, "0x");
+    bool bValueProvidedAsHexa = utility::isHexadecimal(strValue);
 
     // Get integer value from the string provided
     int64_t iData;
@@ -170,13 +161,15 @@ bool CIntegerParameterType::toBlackboard(const string& strValue, uint32_t& uiVal
             signExtend(iData);
         }
 
-        if (!checkValueAgainstRange<int64_t>(strValue, iData, (int32_t)_uiMin, (int32_t)_uiMax, parameterAccessContext, bValueProvidedAsHexa)) {
+        if (!checkValueAgainstRange<int64_t>(strValue, iData, (int32_t)_uiMin, (int32_t)_uiMax,
+                                             parameterAccessContext, bValueProvidedAsHexa)) {
 
             return false;
         }
     } else {
 
-        if (!checkValueAgainstRange<uint64_t>(strValue, iData, _uiMin, _uiMax, parameterAccessContext, bValueProvidedAsHexa)) {
+        if (!checkValueAgainstRange<uint64_t>(strValue, iData, _uiMin, _uiMax,
+                                              parameterAccessContext, bValueProvidedAsHexa)) {
 
             return false;
         }
@@ -187,43 +180,46 @@ bool CIntegerParameterType::toBlackboard(const string& strValue, uint32_t& uiVal
     return true;
 }
 
-bool CIntegerParameterType::fromBlackboard(string& strValue, const uint32_t& uiValue, CParameterAccessContext& parameterAccessContext) const
+bool CIntegerParameterType::fromBlackboard(string &strValue, const uint32_t &value,
+                                           CParameterAccessContext &parameterAccessContext) const
 {
     // Check unsigned value is encodable
-    assert(isEncodable(uiValue, false));
+    assert(isEncodable(value, false));
 
     // Format
-    ostringstream strStream;
+    ostringstream stream;
 
     // Take care of format
     if (parameterAccessContext.valueSpaceIsRaw() && parameterAccessContext.outputRawFormatIsHex()) {
 
         // Hexa display with unecessary bits cleared out
-        strStream << "0x" << std::hex << std::uppercase << std::setw(getSize()*2) << std::setfill('0') << uiValue;
+        stream << "0x" << std::hex << std::uppercase << std::setw(static_cast<int>(getSize() * 2))
+               << std::setfill('0') << value;
     } else {
 
         if (_bSigned) {
 
-            int32_t iValue = uiValue;
+            int32_t iValue = value;
 
             // Sign extend
             signExtend(iValue);
 
-            strStream << iValue;
+            stream << iValue;
         } else {
 
-            strStream << uiValue;
+            stream << value;
         }
     }
 
-    strValue = strStream.str();
+    strValue = stream.str();
 
     return true;
 }
 
 // Value access
 // Integer
-bool CIntegerParameterType::toBlackboard(uint32_t uiUserValue, uint32_t& uiValue, CParameterAccessContext& parameterAccessContext) const
+bool CIntegerParameterType::toBlackboard(uint32_t uiUserValue, uint32_t &uiValue,
+                                         CParameterAccessContext &parameterAccessContext) const
 {
     if (uiUserValue < _uiMin || uiUserValue > _uiMax) {
 
@@ -237,10 +233,9 @@ bool CIntegerParameterType::toBlackboard(uint32_t uiUserValue, uint32_t& uiValue
     return true;
 }
 
-bool CIntegerParameterType::fromBlackboard(uint32_t& uiUserValue, uint32_t uiValue, CParameterAccessContext& parameterAccessContext) const
+bool CIntegerParameterType::fromBlackboard(uint32_t &uiUserValue, uint32_t uiValue,
+                                           CParameterAccessContext & /*ctx*/) const
 {
-    (void)parameterAccessContext;
-
     // Do assign
     uiUserValue = uiValue;
 
@@ -248,7 +243,8 @@ bool CIntegerParameterType::fromBlackboard(uint32_t& uiUserValue, uint32_t uiVal
 }
 
 // Signed Integer
-bool CIntegerParameterType::toBlackboard(int32_t iUserValue, uint32_t& uiValue, CParameterAccessContext& parameterAccessContext) const
+bool CIntegerParameterType::toBlackboard(int32_t iUserValue, uint32_t &uiValue,
+                                         CParameterAccessContext &parameterAccessContext) const
 {
     if (iUserValue < (int32_t)_uiMin || iUserValue > (int32_t)_uiMax) {
 
@@ -262,10 +258,9 @@ bool CIntegerParameterType::toBlackboard(int32_t iUserValue, uint32_t& uiValue, 
     return true;
 }
 
-bool CIntegerParameterType::fromBlackboard(int32_t& iUserValue, uint32_t uiValue, CParameterAccessContext& parameterAccessContext) const
+bool CIntegerParameterType::fromBlackboard(int32_t &iUserValue, uint32_t uiValue,
+                                           CParameterAccessContext & /*ctx*/) const
 {
-    (void)parameterAccessContext;
-
     int32_t iValue = uiValue;
 
     // Sign extend
@@ -278,10 +273,11 @@ bool CIntegerParameterType::fromBlackboard(int32_t& iUserValue, uint32_t uiValue
 }
 
 // Double
-bool CIntegerParameterType::toBlackboard(double dUserValue, uint32_t& uiValue, CParameterAccessContext& parameterAccessContext) const
+bool CIntegerParameterType::toBlackboard(double dUserValue, uint32_t &uiValue,
+                                         CParameterAccessContext &parameterAccessContext) const
 {
     // Check if there's an adaptation object available
-    const CParameterAdaptation* pParameterAdaption = getParameterAdaptation();
+    const CParameterAdaptation *pParameterAdaption = getParameterAdaptation();
 
     if (!pParameterAdaption) {
 
@@ -317,10 +313,11 @@ bool CIntegerParameterType::toBlackboard(double dUserValue, uint32_t& uiValue, C
     return true;
 }
 
-bool CIntegerParameterType::fromBlackboard(double& dUserValue, uint32_t uiValue, CParameterAccessContext& parameterAccessContext) const
+bool CIntegerParameterType::fromBlackboard(double &dUserValue, uint32_t uiValue,
+                                           CParameterAccessContext &parameterAccessContext) const
 {
     // Check if there's an adaptation object available
-    const CParameterAdaptation* pParameterAdaption = getParameterAdaptation();
+    const CParameterAdaptation *pParameterAdaption = getParameterAdaptation();
 
     if (!pParameterAdaption) {
 
@@ -366,7 +363,9 @@ int CIntegerParameterType::toPlainInteger(int iSizeOptimizedData) const
 }
 
 // Convert value provided by the user as a string into an int64
-bool CIntegerParameterType::convertValueFromString(const string& strValue, int64_t& iData, CParameterAccessContext& parameterAccessContext) const {
+bool CIntegerParameterType::convertValueFromString(
+    const string &strValue, int64_t &iData, CParameterAccessContext &parameterAccessContext) const
+{
 
     // Reset errno to check if it is updated during the conversion (strtol/strtoul)
     errno = 0;
@@ -381,11 +380,12 @@ bool CIntegerParameterType::convertValueFromString(const string& strValue, int64
         iData = strtoull(strValue.c_str(), &pcStrEnd, 0);
     }
 
-    // Conversion error when the input string does not contain only digits or the number is out of range (int32_t type)
+    // Conversion error when the input string does not contain only digits or the number is out of
+    // range (int32_t type)
     if (errno || (*pcStrEnd != '\0')) {
 
         string strError;
-        strError =  "Impossible to convert value " + strValue + " for " + getKind();
+        strError = "Impossible to convert value " + strValue + " for " + getKind();
 
         parameterAccessContext.setError(strError);
 
@@ -396,29 +396,35 @@ bool CIntegerParameterType::convertValueFromString(const string& strValue, int64
 }
 
 // Range checking
-template <typename type> bool CIntegerParameterType::checkValueAgainstRange(const string& strValue, type value, type minValue, type maxValue, CParameterAccessContext& parameterAccessContext, bool bHexaValue) const
+template <typename type>
+bool CIntegerParameterType::checkValueAgainstRange(const string &strValue, type value,
+                                                   type minValue, type maxValue,
+                                                   CParameterAccessContext &parameterAccessContext,
+                                                   bool bHexaValue) const
 {
     if (value < minValue || value > maxValue) {
 
-        ostringstream strStream;
+        ostringstream stream;
 
-        strStream << "Value " << strValue << " standing out of admitted range [";
+        stream << "Value " << strValue << " standing out of admitted range [";
 
         if (bHexaValue) {
 
+            stream << "0x" << std::hex << std::uppercase
+                   << std::setw(static_cast<int>(getSize() * 2)) << std::setfill('0');
             // Format Min
-            strStream << "0x" << std::hex << std::uppercase << std::setw(getSize()*2) << std::setfill('0') << makeEncodable(minValue);
+            stream << minValue;
             // Format Max
-            strStream << ", 0x" << std::hex << std::uppercase << std::setw(getSize()*2) << std::setfill('0') << makeEncodable(maxValue);
+            stream << maxValue;
 
         } else {
 
-            strStream << minValue << ", " <<  maxValue;
+            stream << minValue << ", " << maxValue;
         }
 
-        strStream << "] for " << getKind();
+        stream << "] for " << getKind();
 
-        parameterAccessContext.setError(strStream.str());
+        parameterAccessContext.setError(stream.str());
 
         return false;
     }
@@ -426,37 +432,37 @@ template <typename type> bool CIntegerParameterType::checkValueAgainstRange(cons
 }
 
 // Adaptation element retrieval
-const CParameterAdaptation* CIntegerParameterType::getParameterAdaptation() const
+const CParameterAdaptation *CIntegerParameterType::getParameterAdaptation() const
 {
-    return static_cast<const CParameterAdaptation*>(findChildOfKind("Adaptation"));
+    return static_cast<const CParameterAdaptation *>(findChildOfKind("Adaptation"));
 }
 
 // From IXmlSource
-void CIntegerParameterType::toXml(CXmlElement& xmlElement, CXmlSerializingContext& serializingContext) const
+void CIntegerParameterType::toXml(CXmlElement &xmlElement,
+                                  CXmlSerializingContext &serializingContext) const
 {
     // Sign
-    xmlElement.setAttributeBoolean("Signed", _bSigned);
+    xmlElement.setAttribute("Signed", _bSigned);
 
     if (_bSigned) {
 
         // Mininmum
-        xmlElement.setAttributeString("Min", CUtility::toString((int32_t)_uiMin));
+        xmlElement.setAttribute("Min", (int32_t)_uiMin);
 
         // Maximum
-        xmlElement.setAttributeString("Max", CUtility::toString((int32_t)_uiMax));
+        xmlElement.setAttribute("Max", (int32_t)_uiMax);
 
     } else {
 
         // Minimum
-        xmlElement.setAttributeString("Min", CUtility::toString(_uiMin));
+        xmlElement.setAttribute("Min", _uiMin);
 
         // Maximum
-        xmlElement.setAttributeString("Max", CUtility::toString(_uiMax));
+        xmlElement.setAttribute("Max", _uiMax);
     }
 
     // Size
-    xmlElement.setAttributeString("Size", CUtility::toString(getSize() * 8));
+    xmlElement.setAttribute("Size", getSize() * 8);
 
     base::toXml(xmlElement, serializingContext);
-
 }

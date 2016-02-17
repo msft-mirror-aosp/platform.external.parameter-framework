@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, Intel Corporation
+ * Copyright (c) 2011-2015, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -29,45 +29,31 @@
  */
 
 #include "XmlDocSource.h"
+#include "AlwaysAssert.hpp"
 #include <libxml/tree.h>
 #include <libxml/xmlschemas.h>
 #include <libxml/parser.h>
 #include <libxml/xinclude.h>
-#include <libxml/xmlerror.h>
-#include <stdlib.h>
+#include <libxml/uri.h>
+#include <memory>
+#include <stdexcept>
 
 using std::string;
+using xml_unique_ptr = std::unique_ptr<xmlChar, decltype(xmlFree)>;
 
-// Schedule for libxml2 library
-bool CXmlDocSource::_bLibXml2CleanupScheduled;
-
-CXmlDocSource::CXmlDocSource(_xmlDoc *pDoc, bool bValidateWithSchema,
-                             _xmlNode *pRootNode) :
-      _pDoc(pDoc),
-      _pRootNode(pRootNode),
-      _strXmlSchemaFile(""),
-      _strRootElementType(""),
-      _strRootElementName(""),
-      _strNameAttributeName(""),
-      _bValidateWithSchema(bValidateWithSchema)
+CXmlDocSource::CXmlDocSource(_xmlDoc *pDoc, bool bValidateWithSchema, _xmlNode *pRootNode)
+    : _pDoc(pDoc), _pRootNode(pRootNode), _strRootElementType(""), _strRootElementName(""),
+      _strNameAttributeName(""), _bValidateWithSchema(bValidateWithSchema)
 {
-    init();
 }
 
 CXmlDocSource::CXmlDocSource(_xmlDoc *pDoc, bool bValidateWithSchema,
-                             const string& strXmlSchemaFile,
-                             const string& strRootElementType,
-                             const string& strRootElementName,
-                             const string& strNameAttributeName) :
-    _pDoc(pDoc),
-    _pRootNode(xmlDocGetRootElement(pDoc)),
-    _strXmlSchemaFile(strXmlSchemaFile),
-    _strRootElementType(strRootElementType),
-    _strRootElementName(strRootElementName),
-    _strNameAttributeName(strNameAttributeName),
-    _bValidateWithSchema(bValidateWithSchema)
+                             const string &strRootElementType, const string &strRootElementName,
+                             const string &strNameAttributeName)
+    : _pDoc(pDoc), _pRootNode(xmlDocGetRootElement(pDoc)), _strRootElementType(strRootElementType),
+      _strRootElementName(strRootElementName), _strNameAttributeName(strNameAttributeName),
+      _bValidateWithSchema(bValidateWithSchema)
 {
-    init();
 }
 
 CXmlDocSource::~CXmlDocSource()
@@ -79,24 +65,44 @@ CXmlDocSource::~CXmlDocSource()
     }
 }
 
-void CXmlDocSource::getRootElement(CXmlElement& xmlRootElement) const
+void CXmlDocSource::getRootElement(CXmlElement &xmlRootElement) const
 {
     xmlRootElement.setXmlElement(_pRootNode);
 }
 
 string CXmlDocSource::getRootElementName() const
 {
-    return (const char*)_pRootNode->name;
+    return (const char *)_pRootNode->name;
 }
 
-string CXmlDocSource::getRootElementAttributeString(const string& strAttributeName) const
+string CXmlDocSource::getRootElementAttributeString(const string &strAttributeName) const
 {
     CXmlElement topMostElement(_pRootNode);
 
-    return topMostElement.getAttributeString(strAttributeName);
+    string attribute;
+    topMostElement.getAttribute(strAttributeName, attribute);
+    return attribute;
 }
 
-_xmlDoc* CXmlDocSource::getDoc() const
+void CXmlDocSource::setSchemaBaseUri(const string &uri)
+{
+    _schemaBaseUri = uri;
+}
+
+string CXmlDocSource::getSchemaBaseUri()
+{
+    return _schemaBaseUri;
+}
+
+string CXmlDocSource::getSchemaUri() const
+{
+    // Adding a trailing '/' is a bit dirty but works fine on both Linux and
+    // Windows in order to make sure that libxml2's URI handling methods
+    // interpret the base URI as a folder.
+    return mkUri(_schemaBaseUri + "/", getRootElementName() + ".xsd");
+}
+
+_xmlDoc *CXmlDocSource::getDoc() const
 {
     return _pDoc;
 }
@@ -107,13 +113,7 @@ bool CXmlDocSource::isParsable() const
     return _pDoc != NULL;
 }
 
-bool CXmlDocSource::populate(CXmlSerializingContext& serializingContext)
-{
-    return validate(serializingContext);
-
-}
-
-bool CXmlDocSource::validate(CXmlSerializingContext& serializingContext)
+bool CXmlDocSource::populate(CXmlSerializingContext &serializingContext)
 {
     // Check that the doc has been created
     if (!_pDoc) {
@@ -124,8 +124,7 @@ bool CXmlDocSource::validate(CXmlSerializingContext& serializingContext)
     }
 
     // Validate if necessary
-    if (_bValidateWithSchema)
-    {
+    if (_bValidateWithSchema) {
         if (!isInstanceDocumentValid()) {
 
             serializingContext.setError("Document is not valid");
@@ -138,8 +137,8 @@ bool CXmlDocSource::validate(CXmlSerializingContext& serializingContext)
     if (getRootElementName() != _strRootElementType) {
 
         serializingContext.setError("Error: Wrong XML structure document ");
-        serializingContext.appendLineToError("Root Element " + getRootElementName()
-                                             + " mismatches expected type " + _strRootElementType);
+        serializingContext.appendLineToError("Root Element " + getRootElementName() +
+                                             " mismatches expected type " + _strRootElementType);
 
         return false;
     }
@@ -152,10 +151,9 @@ bool CXmlDocSource::validate(CXmlSerializingContext& serializingContext)
         if (!_strRootElementName.empty() && strRootElementNameCheck != _strRootElementName) {
 
             serializingContext.setError("Error: Wrong XML structure document ");
-            serializingContext.appendLineToError(_strRootElementType + " element "
-                                                 + _strRootElementName + " mismatches expected "
-                                                 + _strRootElementType + " type "
-                                                 + strRootElementNameCheck);
+            serializingContext.appendLineToError(
+                _strRootElementType + " element " + _strRootElementName + " mismatches expected " +
+                _strRootElementType + " type " + strRootElementNameCheck);
 
             return false;
         }
@@ -164,21 +162,12 @@ bool CXmlDocSource::validate(CXmlSerializingContext& serializingContext)
     return true;
 }
 
-void CXmlDocSource::init()
-{
-    if (!_bLibXml2CleanupScheduled) {
-
-        // Schedule cleanup
-        atexit(xmlCleanupParser);
-
-        _bLibXml2CleanupScheduled = true;
-    }
-}
-
 bool CXmlDocSource::isInstanceDocumentValid()
 {
 #ifdef LIBXML_SCHEMAS_ENABLED
-    xmlDocPtr pSchemaDoc = xmlReadFile(_strXmlSchemaFile.c_str(), NULL, XML_PARSE_NONET);
+    string schemaUri = getSchemaUri();
+
+    xmlDocPtr pSchemaDoc = xmlReadFile(schemaUri.c_str(), NULL, XML_PARSE_NONET);
 
     if (!pSchemaDoc) {
         // Unable to load Schema
@@ -215,8 +204,6 @@ bool CXmlDocSource::isInstanceDocumentValid()
         return false;
     }
 
-    xmlSetStructuredErrorFunc(this, schemaValidityStructuredErrorFunc);
-
     bool isDocValid = xmlSchemaValidateDoc(pValidationCtxt, _pDoc) == 0;
 
     xmlSchemaFreeValidCtxt(pValidationCtxt);
@@ -230,19 +217,23 @@ bool CXmlDocSource::isInstanceDocumentValid()
 #endif
 }
 
-void CXmlDocSource::schemaValidityStructuredErrorFunc(void* pUserData, _xmlError* pError)
+std::string CXmlDocSource::mkUri(const std::string &base, const std::string &relative)
 {
-    (void)pUserData;
+    xml_unique_ptr baseUri(xmlPathToURI((const xmlChar *)base.c_str()), xmlFree);
+    xml_unique_ptr relativeUri(xmlPathToURI((const xmlChar *)relative.c_str()), xmlFree);
+    /* return null pointer if baseUri or relativeUri are null pointer  */
+    xml_unique_ptr xmlUri(xmlBuildURI(relativeUri.get(), baseUri.get()), xmlFree);
 
-#ifdef LIBXML_SCHEMAS_ENABLED
-    // Display message
-    puts(pError->message);
-#endif
+    ALWAYS_ASSERT(xmlUri != nullptr, "unable to make URI from: \"" << base << "\" and \""
+                                                                   << relative << "\"");
+
+    return (const char *)xmlUri.get();
 }
 
-_xmlDoc* CXmlDocSource::mkXmlDoc(const string& source, bool fromFile, bool xincludes, string& errorMsg)
+_xmlDoc *CXmlDocSource::mkXmlDoc(const string &source, bool fromFile, bool xincludes,
+                                 CXmlSerializingContext &serializingContext)
 {
-    _xmlDoc* doc = NULL;
+    _xmlDoc *doc = NULL;
     if (fromFile) {
         doc = xmlReadFile(source.c_str(), NULL, 0);
     } else {
@@ -250,25 +241,17 @@ _xmlDoc* CXmlDocSource::mkXmlDoc(const string& source, bool fromFile, bool xincl
     }
 
     if (doc == NULL) {
-        errorMsg = "libxml failed to read";
+        string errorMsg = "libxml failed to read";
         if (fromFile) {
             errorMsg += " \"" + source + "\"";
         }
-
-        xmlError* details = xmlGetLastError();
-        if (details != NULL) {
-            errorMsg += ": " + string(details->message);
-        }
+        serializingContext.appendLineToError(errorMsg);
 
         return NULL;
     }
 
     if (xincludes and (xmlXIncludeProcess(doc) < 0)) {
-        errorMsg = "libxml failed to resolve XIncludes";
-        xmlError* details = xmlGetLastError();
-        if (details != NULL) {
-            errorMsg += ": " + string(details->message);
-        }
+        serializingContext.appendLineToError("libxml failed to resolve XIncludes");
 
         xmlFreeDoc(doc);
         doc = NULL;

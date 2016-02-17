@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, Intel Corporation
+ * Copyright (c) 2011-2015, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -29,14 +29,18 @@
  */
 #include "VirtualSubsystem.h"
 #include "VirtualSyncer.h"
+#include "SyncerSet.h"
 
 #define base CSubsystem
 
 using std::string;
 
-CVirtualSubsystem::CVirtualSubsystem(const string& strName)
-    : base(strName), _pVirtualSyncer(new CVirtualSyncer(this))
+CVirtualSubsystem::CVirtualSubsystem(const string &strName, core::log::Logger &logger)
+    : base(strName, logger), _pVirtualSyncer(new CVirtualSyncer(this))
 {
+    logger.warning() << "Subsystem " << strName
+                     << " loaded as virtual. "
+                        "Its parameters will not be synced with any external system.";
 }
 
 CVirtualSubsystem::~CVirtualSubsystem()
@@ -45,17 +49,20 @@ CVirtualSubsystem::~CVirtualSubsystem()
 }
 
 // Syncer
-ISyncer* CVirtualSubsystem::getSyncer() const
+ISyncer *CVirtualSubsystem::getSyncer() const
 {
     return _pVirtualSyncer;
 }
 
-// From IMapper
-bool CVirtualSubsystem::mapBegin(CInstanceConfigurableElement* pInstanceConfigurableElement, bool& bKeepDiving, string& strError)
+void CVirtualSubsystem::fillSyncerSetFromDescendant(CSyncerSet &syncerSet) const
 {
-    (void)pInstanceConfigurableElement;
-    (void)strError;
+    syncerSet += _pVirtualSyncer;
+}
 
+// From IMapper
+bool CVirtualSubsystem::mapBegin(CInstanceConfigurableElement * /*elem*/, bool &bKeepDiving,
+                                 string & /*strError*/)
+{
     // Do nothing: prevent any subsystem object from being mapped
 
     // Stop diving

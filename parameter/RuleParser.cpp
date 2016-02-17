@@ -30,27 +30,25 @@
 #include "RuleParser.h"
 #include "CompoundRule.h"
 #include "SelectionCriterionRule.h"
+#include "AlwaysAssert.hpp"
 #include <assert.h>
 
 using std::string;
 
 // Matches
-const char* CRuleParser::_acDelimiters[CRuleParser::ENbStatuses] = {
-    "{",    // EInit
-    "{} ",  // EBeginCompoundRule
-    ",}",   // EEndCompoundRule
-    ",}",   // ECriterionRule
-    "{ ",   // EContinue
-    ""      // EDone
+const char *CRuleParser::_acDelimiters[CRuleParser::ENbStatuses] = {
+    "{",   // EInit
+    "{} ", // EBeginCompoundRule
+    ",}",  // EEndCompoundRule
+    ",}",  // ECriterionRule
+    "{ ",  // EContinue
+    ""     // EDone
 };
 
-CRuleParser::CRuleParser(const string& strApplicationRule, const CSelectionCriteriaDefinition* pSelectionCriteriaDefinition) :
-    _strApplicationRule(strApplicationRule),
-    _pSelectionCriteriaDefinition(pSelectionCriteriaDefinition),
-    _uiCurrentPos(0),
-    _uiCurrentDeepness(0),
-    _eStatus(CRuleParser::EInit),
-    _pRootRule(NULL)
+CRuleParser::CRuleParser(const string &strApplicationRule,
+                         const CSelectionCriteriaDefinition *pSelectionCriteriaDefinition)
+    : _strApplicationRule(strApplicationRule),
+      _pSelectionCriteriaDefinition(pSelectionCriteriaDefinition)
 {
 }
 
@@ -60,7 +58,7 @@ CRuleParser::~CRuleParser()
 }
 
 // Parse
-bool CRuleParser::parse(CCompoundRule* pParentRule, string& strError)
+bool CRuleParser::parse(CCompoundRule *pParentRule, string &strError)
 {
     while (true) {
         // Iterate till next relevant delimiter
@@ -68,11 +66,11 @@ bool CRuleParser::parse(CCompoundRule* pParentRule, string& strError)
 
             return false;
         }
-        switch(_eStatus) {
+        switch (_eStatus) {
         case EBeginCompoundRule: {
 
             // Create new compound rule
-            CCompoundRule* pCompoundRule = new CCompoundRule;
+            CCompoundRule *pCompoundRule = new CCompoundRule;
 
             // Parse
             if (!pCompoundRule->parse(*this, strError)) {
@@ -106,7 +104,7 @@ bool CRuleParser::parse(CCompoundRule* pParentRule, string& strError)
             break;
         case ECriterionRule: {
             // Create new criterion rule
-            CSelectionCriterionRule* pCriterionRule = new CSelectionCriterionRule;
+            CSelectionCriterionRule *pCriterionRule = new CSelectionCriterionRule;
 
             // Parse
             if (!pCriterionRule->parse(*this, strError)) {
@@ -116,6 +114,7 @@ bool CRuleParser::parse(CCompoundRule* pParentRule, string& strError)
                 return false;
             }
 
+            ALWAYS_ASSERT(pParentRule != NULL, "Invalid parent rule given to rule parser");
             // Chain
             pParentRule->addChild(pCriterionRule);
 
@@ -134,7 +133,6 @@ bool CRuleParser::parse(CCompoundRule* pParentRule, string& strError)
 
                 return false;
             }
-
         }
         default:
             assert(0);
@@ -146,11 +144,11 @@ bool CRuleParser::parse(CCompoundRule* pParentRule, string& strError)
 }
 
 // Iterate
-bool CRuleParser::iterate(string& strError)
+bool CRuleParser::iterate(string &strError)
 {
     string::size_type delimiter;
 
-    assert(_uiCurrentPos <= _strApplicationRule.length());
+    ALWAYS_ASSERT(_uiCurrentPos <= _strApplicationRule.length(), "Current Position outside range");
 
     // Consume spaces
     if ((delimiter = _strApplicationRule.find_first_not_of(" ", _uiCurrentPos)) != string::npos) {
@@ -160,20 +158,22 @@ bool CRuleParser::iterate(string& strError)
     }
 
     // Parse
-    if ((_uiCurrentPos != _strApplicationRule.length()) && ((delimiter = _strApplicationRule.find_first_of(_acDelimiters[_eStatus], _uiCurrentPos)) != string::npos)) {
+    if ((_uiCurrentPos != _strApplicationRule.length()) &&
+        ((delimiter = _strApplicationRule.find_first_of(_acDelimiters[_eStatus], _uiCurrentPos)) !=
+         string::npos)) {
 
-        switch(_strApplicationRule[delimiter]) {
+        switch (_strApplicationRule[delimiter]) {
 
         case '{':
             _eStatus = EBeginCompoundRule;
             // Extract type
             _strRuleType = _strApplicationRule.substr(_uiCurrentPos, delimiter - _uiCurrentPos);
-            _uiCurrentDeepness++;
+            _currentDeepness++;
             break;
         case '}':
             _eStatus = EEndCompoundRule;
 
-            if (!_uiCurrentDeepness--) {
+            if (!_currentDeepness--) {
 
                 strError = "Missing opening brace";
 
@@ -193,7 +193,7 @@ bool CRuleParser::iterate(string& strError)
         _uiCurrentPos = delimiter + 1;
     } else {
 
-        if (_uiCurrentDeepness) {
+        if (_currentDeepness) {
 
             strError = "Missing closing brace";
 
@@ -214,21 +214,21 @@ bool CRuleParser::iterate(string& strError)
 }
 
 // Rule type
-const string& CRuleParser::getType() const
+const string &CRuleParser::getType() const
 {
     return _strRuleType;
 }
 
 // Criteria defintion
-const CSelectionCriteriaDefinition* CRuleParser::getSelectionCriteriaDefinition() const
+const CSelectionCriteriaDefinition *CRuleParser::getSelectionCriteriaDefinition() const
 {
     return _pSelectionCriteriaDefinition;
 }
 
 // Root rule
-CCompoundRule* CRuleParser::grabRootRule()
+CCompoundRule *CRuleParser::grabRootRule()
 {
-    CCompoundRule* pRootRule = _pRootRule;
+    CCompoundRule *pRootRule = _pRootRule;
 
     assert(pRootRule);
 
@@ -238,7 +238,7 @@ CCompoundRule* CRuleParser::grabRootRule()
 }
 
 // Next word
-bool CRuleParser::next(string& strNext, string& strError)
+bool CRuleParser::next(string &strNext, string &strError)
 {
     string::size_type delimiter;
 

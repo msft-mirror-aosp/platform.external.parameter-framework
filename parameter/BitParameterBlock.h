@@ -34,18 +34,23 @@
 class CBitParameterBlock : public CInstanceConfigurableElement
 {
 public:
-    CBitParameterBlock(const std::string& strName, const CTypeElement* pTypeElement);
+    CBitParameterBlock(const std::string &strName, const CTypeElement *pTypeElement);
 
     // Instantiation, allocation
-    virtual uint32_t getFootPrint() const;
+    virtual size_t getFootPrint() const;
 
     // Type
     virtual Type getType() const;
 
     // Size
-    uint32_t getSize() const;
+    size_t getSize() const;
 
     // Used for simulation and virtual subsystems
-    virtual void setDefaultValues(CParameterAccessContext& parameterAccessContext) const;
-};
+    virtual void setDefaultValues(CParameterAccessContext &parameterAccessContext) const;
 
+    void structureToXml(CXmlElement &xmlElement, CXmlSerializingContext &serializingContext) const
+    {
+        xmlElement.setAttribute("Size", getSize() * 8);
+        CInstanceConfigurableElement::structureToXml(xmlElement, serializingContext);
+    }
+};

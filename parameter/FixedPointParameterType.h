@@ -36,46 +36,43 @@
 class CFixedPointParameterType : public CParameterType
 {
 public:
-    CFixedPointParameterType(const std::string& strName);
+    CFixedPointParameterType(const std::string &strName);
 
     // From IXmlSink
-    virtual bool fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& serializingContext);
+    virtual bool fromXml(const CXmlElement &xmlElement, CXmlSerializingContext &serializingContext);
 
     // From IXmlSource
-    virtual void toXml(CXmlElement& xmlElement, CXmlSerializingContext& serializingContext) const;
+    virtual void toXml(CXmlElement &xmlElement, CXmlSerializingContext &serializingContext) const;
 
     // XML Serialization value space handling
     // Value space handling for configuration import
-    virtual void handleValueSpaceAttribute(CXmlElement& xmlConfigurableElementSettingsElement, CConfigurationAccessContext& configurationAccessContext) const;
+    virtual void handleValueSpaceAttribute(
+        CXmlElement &xmlConfigurableElementSettingsElement,
+        CConfigurationAccessContext &configurationAccessContext) const;
 
     /// Conversion
     // String
-    virtual bool toBlackboard(const std::string& strValue, uint32_t& uiValue, CParameterAccessContext& parameterAccessContext) const;
-    virtual bool fromBlackboard(std::string& strValue, const uint32_t& uiValue, CParameterAccessContext& parameterAccessContext) const;
+    virtual bool toBlackboard(const std::string &strValue, uint32_t &uiValue,
+                              CParameterAccessContext &parameterAccessContext) const;
+    virtual bool fromBlackboard(std::string &strValue, const uint32_t &uiValue,
+                                CParameterAccessContext &parameterAccessContext) const;
     // Double
-    virtual bool toBlackboard(double dUserValue, uint32_t& uiValue, CParameterAccessContext& parameterAccessContext) const;
-    virtual bool fromBlackboard(double& dUserValue, uint32_t uiValue, CParameterAccessContext& parameterAccessContext) const;
+    virtual bool toBlackboard(double dUserValue, uint32_t &uiValue,
+                              CParameterAccessContext &parameterAccessContext) const;
+    virtual bool fromBlackboard(double &dUserValue, uint32_t uiValue,
+                                CParameterAccessContext &parameterAccessContext) const;
 
     // Element properties
-    virtual void showProperties(std::string& strResult) const;
+    virtual void showProperties(std::string &strResult) const;
 
     // CElement
     virtual std::string getKind() const;
+
 private:
     // Util size
-    uint32_t getUtilSizeInBits() const;
+    size_t getUtilSizeInBits() const;
     // Range computation
-    void getRange(double& dMin, double& dMax) const;
-
-    /**
-     * Checks if a string has the written representation of an hexadecimal number (Which is
-     * the prefix "Ox" in C++).
-     *
-     * @param[in] strValue Parameter read from the XML file representated as a string.
-     *
-     * @return true if the string is written as hexa, false otherwise.
-     */
-    bool isHexadecimal(const std::string& strValue) const;
+    void getRange(double &dMin, double &dMax) const;
 
     /**
      * Convert a decimal raw represented string into an unsigned long integer.
@@ -85,11 +82,12 @@ private:
      * @param[in] strValue Parameter read from the XML file representated as a string in decimal
      *                     raw format
      * @param[out] uiValue Parameter representated as a long unsigned integer.
-     * @param[in:out] parameterAccessContext Parameter access context.
+     * @param[in,out] parameterAccessContext Parameter access context.
      *
      * @return true if the string was successfully converted, false otherwise.
      */
-    bool convertFromDecimal(const std::string& strValue, uint32_t& uiValue, CParameterAccessContext& parameterAccessContext) const;
+    bool convertFromDecimal(const std::string &strValue, uint32_t &uiValue,
+                            CParameterAccessContext &parameterAccessContext) const;
 
     /**
      * Convert an hexadecimal raw represented string into an unsigned long integer.
@@ -99,11 +97,12 @@ private:
      * @param[in] strValue Parameter read from the XML file representated as a string in hexadecimal
      *                     raw format
      * @param[out] uiValue Parameter representated as a long unsigned integer.
-     * @param[in:out] parameterAccessContext Parameter access context.
+     * @param[in,out] parameterAccessContext Parameter access context.
      *
      * @return true if the string was successfully converted, false otherwise.
      */
-    bool convertFromHexadecimal(const std::string& strValue, uint32_t& uiValue, CParameterAccessContext& parameterAccessContext) const;
+    bool convertFromHexadecimal(const std::string &strValue, uint32_t &uiValue,
+                                CParameterAccessContext &parameterAccessContext) const;
 
     /**
      * Convert a Qn.m represented string into an unsigned long integer.
@@ -113,11 +112,12 @@ private:
      * @param[in] strValue Parameter read from the XML file representated as a string in Qn.m
      *                     representation.
      * @param[out] uiValue Parameter representated as a long unsigned integer.
-     * @param[in:out] parameterAccessContext Parameter access context.
+     * @param[in,out] parameterAccessContext Parameter access context.
      *
      * @return true if the string was successfully converted, false otherwise.
      */
-    bool convertFromQnm(const std::string& strValue, uint32_t& uiValue, CParameterAccessContext& parameterAccessContext) const;
+    bool convertFromQnm(const std::string &strValue, uint32_t &uiValue,
+                        CParameterAccessContext &parameterAccessContext) const;
 
     /**
      * Set the out of range error.
@@ -125,9 +125,10 @@ private:
      * illegal value provided and gives the range allowed for the parameter.
      *
      * @param[in] strValue Parameter read from the XML file representated as a string
-     * @param[in:out] parameterAccessContext Parameter Access Context
+     * @param[in,out] parameterAccessContext Parameter Access Context
      */
-    void setOutOfRangeError(const std::string& strValue, CParameterAccessContext& parameterAccessContext) const;
+    void setOutOfRangeError(const std::string &strValue,
+                            CParameterAccessContext &parameterAccessContext) const;
 
     // Check if data is encodable
     bool checkValueAgainstRange(double dValue) const;
@@ -152,7 +153,7 @@ private:
     double binaryQnmToDouble(int32_t iValue) const;
 
     // Integral part in Q notation
-    uint32_t _uiIntegral;
+    uint32_t _uiIntegral{0};
     // Fractional part in Q notation
-    uint32_t _uiFractional;
+    uint32_t _uiFractional{0};
 };

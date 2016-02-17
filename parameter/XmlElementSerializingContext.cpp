@@ -28,39 +28,31 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "XmlElementSerializingContext.h"
-#include <stdlib.h>
 
 #define base CXmlSerializingContext
 
 using std::string;
 
-CXmlElementSerializingContext::CXmlElementSerializingContext(string& strError) : base(strError), _pElementLibrary(NULL)
+CXmlElementSerializingContext::CXmlElementSerializingContext(string &strError) : base(strError)
 {
 }
 
 // Init
-void CXmlElementSerializingContext::set(const CElementLibrary* pElementLibrary, const string& strXmlFolder, const string& strXmlSchemaFolder)
+void CXmlElementSerializingContext::set(const CElementLibrary *pElementLibrary,
+                                        const string &xmlUri)
 {
     _pElementLibrary = pElementLibrary;
-    _strXmlFolder = strXmlFolder;
-    _strXmlSchemaFolder = strXmlSchemaFolder;
+    _xmlUri = xmlUri;
 }
 
 // ElementLibrary
-const CElementLibrary* CXmlElementSerializingContext::getElementLibrary() const
+const CElementLibrary *CXmlElementSerializingContext::getElementLibrary() const
 {
     return _pElementLibrary;
 }
 
 // XML Folder Path
-const string& CXmlElementSerializingContext::getXmlFolder() const
+const string &CXmlElementSerializingContext::getXmlUri() const
 {
-    return _strXmlFolder;
+    return _xmlUri;
 }
-
-// XML Schema Path
-const string& CXmlElementSerializingContext::getXmlSchemaPathFolder() const
-{
-    return _strXmlSchemaFolder;
-}
-

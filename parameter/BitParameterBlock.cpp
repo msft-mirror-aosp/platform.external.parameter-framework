@@ -36,7 +36,8 @@
 
 using std::string;
 
-CBitParameterBlock::CBitParameterBlock(const string& strName, const CTypeElement* pTypeElement) : base(strName, pTypeElement)
+CBitParameterBlock::CBitParameterBlock(const string &strName, const CTypeElement *pTypeElement)
+    : base(strName, pTypeElement)
 {
 }
 
@@ -46,27 +47,30 @@ CInstanceConfigurableElement::Type CBitParameterBlock::getType() const
 }
 
 // Instantiation, allocation
-uint32_t CBitParameterBlock::getFootPrint() const
+size_t CBitParameterBlock::getFootPrint() const
 {
     return getSize();
 }
 
 // Size
-uint32_t CBitParameterBlock::getSize() const
+size_t CBitParameterBlock::getSize() const
 {
-    return static_cast<const CBitParameterBlockType*>(getTypeElement())->getSize();
+    return static_cast<const CBitParameterBlockType *>(getTypeElement())->getSize();
 }
 
 // Used for simulation and virtual subsystems
-void CBitParameterBlock::setDefaultValues(CParameterAccessContext& parameterAccessContext) const
+void CBitParameterBlock::setDefaultValues(CParameterAccessContext &parameterAccessContext) const
 {
-    // Get default value from type
-    uint32_t uiDefaultValue = 0;
+    // Default value is 0 as their is no min bound for bit parameters,
+    // thus 0 is always a valid value.
+    // BitParameterBlock can be as long a 64 bit, thus an 64 bit long variable
+    // is necessary to initialize it.
+    uint64_t uiDefaultValue = 0;
 
     // Write blackboard
-    CParameterBlackboard* pBlackboard = parameterAccessContext.getParameterBlackboard();
+    CParameterBlackboard *pBlackboard = parameterAccessContext.getParameterBlackboard();
 
     // Beware this code works on little endian architectures only!
-    pBlackboard->writeInteger(&uiDefaultValue, getSize(), getOffset() - parameterAccessContext.getBaseOffset(), parameterAccessContext.isBigEndianSubsystem());
+    pBlackboard->writeInteger(&uiDefaultValue, getSize(),
+                              getOffset() - parameterAccessContext.getBaseOffset());
 }
-

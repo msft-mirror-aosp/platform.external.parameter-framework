@@ -27,38 +27,54 @@
 * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+#include <convert.hpp>
 #include <string.h>
+#include <string>
 #include <sstream>
 #include <stdlib.h>
 #include <assert.h>
+#include <algorithm>
+#include <AlwaysAssert.hpp>
+#include <Iterator.hpp>
 #include "TESTSubsystemBinary.h"
 
 #define base CTESTSubsystemObject
 
-CTESTSubsystemBinary::CTESTSubsystemBinary(const std::string& strMappingValue, CInstanceConfigurableElement* pInstanceConfigurableElement, const CMappingContext& context)
-    : base(strMappingValue, pInstanceConfigurableElement, context)
+CTESTSubsystemBinary::CTESTSubsystemBinary(
+    const std::string &strMappingValue, CInstanceConfigurableElement *pInstanceConfigurableElement,
+    const CMappingContext &context, core::log::Logger &logger)
+    : base(strMappingValue, pInstanceConfigurableElement, context, logger)
 {
 }
 
-std::string CTESTSubsystemBinary::toString(const void* pvValue, uint32_t uiSize) const
+std::string CTESTSubsystemBinary::toString(const void *pvValue, size_t size) const
 {
     std::ostringstream strStream;
     uint32_t uiValue = 0;
 
-    assert(uiSize <= sizeof(uiValue));
+    assert(size <= sizeof(uiValue));
 
-    memcpy((void*)&uiValue, pvValue, uiSize);
+    auto first = MAKE_ARRAY_ITERATOR(static_cast<const uint8_t *>(pvValue), size);
+    auto destination = MAKE_ARRAY_ITERATOR(reinterpret_cast<uint8_t *>(&uiValue), sizeof(uiValue));
+
+    std::copy_n(first, size, destination);
 
     strStream << "0x" << std::hex << uiValue;
 
     return strStream.str();
 }
 
-void CTESTSubsystemBinary::fromString(const std::string& strValue, void* pvValue, uint32_t uiSize)
+void CTESTSubsystemBinary::fromString(const std::string &strValue, void *pvValue, size_t size)
 {
-    uint32_t uiValue = strtoul(strValue.c_str(), NULL, 0);
+    uint32_t uiValue;
 
-    assert(uiSize <= sizeof(uiValue));
+    assert(size <= sizeof(uiValue));
 
-    memcpy(pvValue, (const void*)&uiValue, uiSize);
+    if (!convertTo(strValue, uiValue)) {
+        throw std::runtime_error("Unable to convert \"" + strValue + "\" to uint32");
+    }
+
+    auto first = MAKE_ARRAY_ITERATOR(reinterpret_cast<const uint8_t *>(&uiValue), size);
+    auto destination = MAKE_ARRAY_ITERATOR(static_cast<uint8_t *>(pvValue), size);
+    std::copy_n(first, size, destination);
 }

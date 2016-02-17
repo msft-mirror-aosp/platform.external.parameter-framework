@@ -38,47 +38,58 @@
 class CParameter : public CBaseParameter
 {
 public:
-    CParameter(const std::string& strName, const CTypeElement* pTypeElement);
+    CParameter(const std::string &strName, const CTypeElement *pTypeElement);
 
     // Instantiation, allocation
-    virtual uint32_t getFootPrint() const;
+    virtual size_t getFootPrint() const;
 
     // Type
     virtual Type getType() const;
 
     // XML configuration settings parsing/composing
-    virtual bool serializeXmlSettings(CXmlElement& xmlConfigurationSettingsElementContent, CConfigurationAccessContext& configurationAccessContext) const;
+    virtual bool serializeXmlSettings(
+        CXmlElement &xmlConfigurationSettingsElementContent,
+        CConfigurationAccessContext &configurationAccessContext) const;
 
     // Boolean access
-    virtual bool accessAsBoolean(bool& bValue, bool bSet, CParameterAccessContext& parameterAccessContext) const;
+    bool access(bool &bValue, bool bSet,
+                CParameterAccessContext &parameterAccessContext) const override;
 
     // Integer Access
-    virtual bool accessAsInteger(uint32_t& uiValue, bool bSet, CParameterAccessContext& parameterAccessContext) const;
+    bool access(uint32_t &uiValue, bool bSet,
+                CParameterAccessContext &parameterAccessContext) const override;
 
     // Signed Integer Access
-    virtual bool accessAsSignedInteger(int32_t& iValue, bool bSet, CParameterAccessContext& parameterAccessContext) const;
+    bool access(int32_t &iValue, bool bSet,
+                CParameterAccessContext &parameterAccessContext) const override;
 
     // Double Access
-    virtual bool accessAsDouble(double& dValue, bool bSet, CParameterAccessContext& parameterAccessContext) const;
+    bool access(double &dValue, bool bSet,
+                CParameterAccessContext &parameterAccessContext) const override;
+
 protected:
     // Used for simulation and virtual subsystems
-    virtual void setDefaultValues(CParameterAccessContext& parameterAccessContext) const;
+    virtual void setDefaultValues(CParameterAccessContext &parameterAccessContext) const;
 
     // Actual value access
-    virtual bool doSetValue(const std::string& strValue, uint32_t uiOffset, CParameterAccessContext& parameterAccessContext) const;
-    virtual void doGetValue(std::string& strValue, uint32_t uiOffset, CParameterAccessContext& parameterAccessContext) const;
+    virtual bool doSetValue(const std::string &strValue, size_t offset,
+                            CParameterAccessContext &parameterAccessContext) const;
+    virtual void doGetValue(std::string &strValue, size_t offset,
+                            CParameterAccessContext &parameterAccessContext) const;
 
     // Value space handling for configuration import
-    void handleValueSpaceAttribute(CXmlElement& xmlConfigurableElementSettingsElement, CConfigurationAccessContext& configurationAccessContext) const;
+    void handleValueSpaceAttribute(CXmlElement &xmlConfigurableElementSettingsElement,
+                                   CConfigurationAccessContext &configurationAccessContext) const;
 
     // Size
-    uint32_t getSize() const;
+    size_t getSize() const;
+
 private:
     // Generic Access
     template <typename type>
-    bool doAccess(type& value, bool bSet, CParameterAccessContext& parameterAccessContext) const;
+    bool doAccess(type &value, bool bSet, CParameterAccessContext &parameterAccessContext) const;
     template <typename type>
-    bool doSet(type value, uint32_t uiOffset, CParameterAccessContext& parameterAccessContext) const;
+    bool doSet(type value, size_t offset, CParameterAccessContext &parameterAccessContext) const;
     template <typename type>
-    bool doGet(type& value, uint32_t uiOffset, CParameterAccessContext& parameterAccessContext) const;
+    bool doGet(type &value, size_t offset, CParameterAccessContext &parameterAccessContext) const;
 };

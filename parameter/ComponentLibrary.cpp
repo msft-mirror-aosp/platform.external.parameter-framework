@@ -31,10 +31,6 @@
 #include "ComponentType.h"
 #include <assert.h>
 
-CComponentLibrary::CComponentLibrary()
-{
-}
-
 bool CComponentLibrary::childrenAreDynamic() const
 {
     return true;
@@ -45,13 +41,13 @@ std::string CComponentLibrary::getKind() const
     return "ComponentLibrary";
 }
 
-const CComponentType* CComponentLibrary::getComponentType(const std::string& strName) const
+const CComponentType *CComponentLibrary::getComponentType(const std::string &strName) const
 {
-    return static_cast<const CComponentType*>(findChild(strName));
+    return static_cast<const CComponentType *>(findChild(strName));
 }
 
-bool CComponentLibrary::fromXml(const CXmlElement& xmlElement,
-                                CXmlSerializingContext& serializingContext)
+bool CComponentLibrary::fromXml(const CXmlElement &xmlElement,
+                                CXmlSerializingContext &serializingContext)
 {
     CXmlElement childElement;
 
@@ -70,7 +66,7 @@ bool CComponentLibrary::fromXml(const CXmlElement& xmlElement,
             }
         } else {
             // Regular child creation and populating
-            CElement* pChild = createChild(childElement, serializingContext);
+            CElement *pChild = createChild(childElement, serializingContext);
 
             if (!pChild || !pChild->fromXml(childElement, serializingContext)) {
 
@@ -81,4 +77,3 @@ bool CComponentLibrary::fromXml(const CXmlElement& xmlElement,
 
     return true;
 }
-

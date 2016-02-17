@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, Intel Corporation
+ * Copyright (c) 2011-2015, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -33,6 +33,7 @@
 #include "Element.h"
 #include "SelectionCriterionType.h"
 #include "SelectionCriterion.h"
+#include <log/Logger.h>
 
 #include <string>
 
@@ -42,32 +43,38 @@ class ISelectionCriterionObserver;
 
 class CSelectionCriteria : public CElement
 {
-    enum ChildElementType {
+    enum ChildElementType
+    {
         ESelectionCriterionLibrary,
         ESelectionCriteriaDefinition
     };
+
 public:
     CSelectionCriteria();
 
     // Selection Criteria/Type creation
-    CSelectionCriterionType* createSelectionCriterionType(bool bIsInclusive);
-    CSelectionCriterion* createSelectionCriterion(const std::string& strName, const CSelectionCriterionType* pSelectionCriterionType);
+    CSelectionCriterionType *createSelectionCriterionType(bool bIsInclusive);
+    CSelectionCriterion *createSelectionCriterion(const std::string &strName,
+                                                  const CSelectionCriterionType *pType,
+                                                  core::log::Logger &logger);
     // Selection criterion retrieval
-    CSelectionCriterion* getSelectionCriterion(const std::string& strName);
+    CSelectionCriterion *getSelectionCriterion(const std::string &strName);
 
     // Selection Criterion definition
-    const CSelectionCriteriaDefinition* getSelectionCriteriaDefinition() const;
+    const CSelectionCriteriaDefinition *getSelectionCriteriaDefinition() const;
 
     // List available criteria
-    void listSelectionCriteria(std::list<std::string>& strResult, bool bWithTypeInfo, bool bHumanReadable) const;
+    void listSelectionCriteria(std::list<std::string> &strResult, bool bWithTypeInfo,
+                               bool bHumanReadable) const;
 
     // Base
     virtual std::string getKind() const;
 
     // Reset the modified status of the children
     void resetModifiedStatus();
+
 private:
     // Children access
-    CSelectionCriterionLibrary* getSelectionCriterionLibrary();
-    CSelectionCriteriaDefinition* getSelectionCriteriaDefinition();
+    CSelectionCriterionLibrary *getSelectionCriterionLibrary();
+    CSelectionCriteriaDefinition *getSelectionCriteriaDefinition();
 };

@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (c) 2011-2014, Intel Corporation
  * All rights reserved.
  *
@@ -29,35 +29,37 @@
  */
 #pragma once
 
+#include "remote_processor_export.h"
+
 #include "Message.h"
 #include "RemoteCommand.h"
 #include <vector>
 #include <string>
 
-class CRequestMessage : public CMessage, public IRemoteCommand
+class REMOTE_PROCESSOR_EXPORT CRequestMessage : public CMessage, public IRemoteCommand
 {
 public:
-    CRequestMessage(const std::string& strCommand);
+    CRequestMessage(const std::string &strCommand);
     CRequestMessage();
 
     // Command Name
-    void setCommand(const std::string& strCommand);
-    virtual const std::string& getCommand() const;
+    void setCommand(const std::string &strCommand);
+    virtual const std::string &getCommand() const;
 
     // Arguments
-    virtual void addArgument(const std::string& strArgument);
-    virtual uint32_t getArgumentCount() const;
-    virtual const std::string& getArgument(uint32_t uiArgument) const;
-    virtual const std::string packArguments(uint32_t uiStartArgument, uint32_t uiNbArguments) const;
+    virtual void addArgument(const std::string &strArgument);
+    virtual size_t getArgumentCount() const;
+    virtual const std::string &getArgument(size_t argument) const;
+    virtual const std::vector<std::string> &getArguments() const;
+    virtual const std::string packArguments(size_t startArgument, size_t nbArguments) const;
 
 private:
-
     /**
       * Constant character array.
       * This value defines the delimiters used to separate the arguments
       * in the request command.
       */
-    static const char* const gacDelimiters;
+    static const char *const gacDelimiters;
 
     // Fill data to send
     virtual void fillDataToSend();
@@ -69,11 +71,10 @@ private:
      */
     virtual size_t getDataSize() const;
     // Trim input std::string
-    static std::string trim(const std::string& strToTrim);
+    static std::string trim(const std::string &strToTrim);
 
     // Command
     std::string _strCommand;
     // Arguments
     std::vector<std::string> _argumentVector;
 };
-

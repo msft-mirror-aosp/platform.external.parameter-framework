@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, Intel Corporation
+ * Copyright (c) 2016, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -27,86 +27,21 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#pragma once
+#include <asio.hpp>
 
-#include <string>
-#include <stdint.h>
-
-struct sockaddr_in;
-struct in_addr;
-
-/** Readable and writable socket.
+/** Wraps and hides asio::ip::tcp::socket
  *
- * The class does not encapsulate completely it's internal file descriptor as
- * it can be retrieve by the getFd method.
- *
- * This "feature" means that it's state consistency can not
- * be enforced by the class but rather by clients.
+ * asio::ip::tcp::socket cannot be forward-declared because it is an
+ * inner-class. This class wraps the asio class in order for it to be
+ * forward-declared and avoid it to leak in client interfaces.
  */
-class CSocket
+class Socket
 {
 public:
-    CSocket();
-    CSocket(int iSockId);
-    virtual ~CSocket();
+    Socket(asio::ip::tcp::socket &socket) : mSocket(socket) {}
 
-    // Non blocking state
-    void setNonBlocking(bool bNonBlocking);
+    asio::ip::tcp::socket &get() { return mSocket; }
 
-    // Communication timeout
-    void setTimeout(uint32_t uiMilliseconds);
-
-    /* Read data
-     *
-     * On failure errno will be set appropriately (see send).
-     * If the client disconnects, false will be returned and
-     *     - hasPeerDisconnected will return true
-     *     - errno is set to ECONNRESET.
-     * @param[in] pvData - on success: will contain the sent data
-     *                  - on failure: undefined
-     * @param[in] uiSize size of the data to receive.
-     *
-     * @return true if all data could be read, false otherwise.
-     */
-    bool read(void* pvData, uint32_t uiSize);
-
-    /* Write data
-     *
-     * On failure errno will be set (see recv)
-     * @param[in] pvData data to send.
-     * @param[in] uiSize is the size of the data to send.
-     *
-     * @return true if all data could be read, false otherwise.
-     */
-    bool write(const void* pvData, uint32_t uiSize);
-
-    /** @return the managed file descriptor.
-     *
-     * The client can then bind/connect/accept/listen/... the socket.
-     */
-    int getFd() const;
-
-    /** @return true if the peer has disconnected.
-     *
-     * The internal fd is returned by getFd and clients can use it for
-     * bind/connect/read/write/... as a result it's state can not be tracked.
-     *
-     * Thus hasPeerDisconnected returns true only if the disconnection
-     * was notified during a call to CSocket::write or CSocket::read.
-     */
-    bool hasPeerDisconnected();
-
-protected:
-    // Socket address init
-    void initSockAddrIn(struct sockaddr_in* pSockAddrIn, uint32_t uiInAddr, uint16_t uiPort) const;
 private:
-    int _iSockFd;
-    /** If the peer disconnected.
-     *
-     * This is not the state of _iSockFd (connected/disconnected)
-     *
-     * See hasPeerDisconnected for more details.
-     */
-    bool _disconnected;
-    int mSendFlag;
+    asio::ip::tcp::socket &mSocket;
 };

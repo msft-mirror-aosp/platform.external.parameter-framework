@@ -1,6 +1,6 @@
 #! /usr/bin/python
 #
-# Copyright (c) 2011-2014, Intel Corporation
+# Copyright (c) 2011-2015, Intel Corporation
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without modification,
@@ -28,9 +28,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import PyPfw
 import EddParser
-from PfwBaseTranslator import PfwBaseTranslator, PfwException
+from PFWScriptGenerator import PfwScriptTranslator
 import hostConfig
 
 import argparse
@@ -39,90 +38,12 @@ import sys
 import tempfile
 import os
 import logging
+import subprocess
 
-def wrap_pfw_error_semantic(func):
-    def wrapped(*args, **kwargs):
-        ok, error = func(*args, **kwargs)
-        if not ok:
-            raise PfwException(error)
-
-    return wrapped
-
-class PfwTranslator(PfwBaseTranslator):
-    """Generates calls to the Pfw's python bindings"""
-
-    def __init__(self, pfw_instance, error_handler):
-        super(PfwTranslator, self).__init__()
-        self._pfw = pfw_instance
-        self._error_handler = error_handler
-
-    def _handleException(self, ex):
-        if isinstance(ex, PfwException):
-            # catch and handle translation errors...
-            self._error_handler(ex, self._getContext())
-        else:
-            # ...but let any other error fall through
-            raise ex
-
-    @wrap_pfw_error_semantic
-    def _doCreateDomain(self, name):
-        return self._pfw.createDomain(name)
-
-    @wrap_pfw_error_semantic
-    def _doSetSequenceAware(self):
-        return self._pfw.setSequenceAwareness(self._ctx_domain, True)
-
-    @wrap_pfw_error_semantic
-    def _doAddElement(self, path):
-        return self._pfw.addConfigurableElementToDomain(self._ctx_domain, path)
-
-    @wrap_pfw_error_semantic
-    def _doCreateConfiguration(self, name):
-        return self._pfw.createConfiguration(self._ctx_domain, name)
-
-    @wrap_pfw_error_semantic
-    def _doSetElementSequence(self, paths):
-        return self._pfw.setElementSequence(self._ctx_domain, self._ctx_configuration, paths)
-
-    @wrap_pfw_error_semantic
-    def _doSetRule(self, rule):
-        return self._pfw.setApplicationRule(self._ctx_domain, self._ctx_configuration, rule)
-
-    @wrap_pfw_error_semantic
-    def _doSetParameter(self, path, value):
-        ok, _, error = self._pfw.accessConfigurationValue(
-                self._ctx_domain, self._ctx_configuration, path, value, True)
-
-        return ok, error
-
-
-class PfwTranslationErrorHandler:
-    def __init__(self):
-        self._errors = []
-        self._hasFailed = False
-
-    def __call__(self, error, context):
-        sys.stderr.write("Error in context {}:\n\t{}\n".format(context, error))
-        self._hasFailed = True
-
-    def hasFailed(self):
-        return self._hasFailed
-
-class PfwLogger(PyPfw.ILogger):
-    def __init__(self):
-        super(PfwLogger, self).__init__()
-        self.__logger = logging.root.getChild("parameter-framework")
-
-    def log(self, is_warning, message):
-        log_func = self.__logger.warning if is_warning else self.__logger.info
-        log_func(message)
-
-# If this file is directly executed
-if __name__ == "__main__":
-    logging.root.setLevel(logging.INFO)
-
+def parseArgs():
     argparser = argparse.ArgumentParser(description="Parameter-Framework XML \
-        Settings file generator")
+        Settings file generator.\n\
+        Exit with the number of (recoverable or not) error that occured.")
     argparser.add_argument('--toplevel-config',
             help="Top-level parameter-framework configuration file. Mandatory.",
             metavar="TOPLEVEL_CONFIG_FILE",
@@ -137,6 +58,7 @@ if __name__ == "__main__":
             help="Initial XML settings file (containing a \
         <ConfigurableDomains>  tag",
             nargs='?',
+            default=None,
             metavar="XML_SETTINGS_FILE")
     argparser.add_argument('--add-domains',
             help="List of single domain files (each containing a single \
@@ -157,20 +79,17 @@ if __name__ == "__main__":
         validation",
             default=None)
     argparser.add_argument('--target-schemas-dir',
-            help="Directory of parameter-framework XML Schemas on target \
-        machine (may be different than generating machine). \
-        Defaults to \"Schemas\"",
-            default="Schemas")
+            help="Ignored. Kept for retro-compatibility")
     argparser.add_argument('--validate',
             help="Validate the settings against XML schemas",
             action='store_true')
     argparser.add_argument('--verbose',
             action='store_true')
 
-    args = argparser.parse_args()
+    return argparser.parse_args()
 
-    #
-    # Criteria file
+def parseCriteria(criteriaFile):
+    # Parse a criteria file
     #
     # This file define one criteria per line; they should respect this format:
     #
@@ -185,16 +104,15 @@ if __name__ == "__main__":
         r"(?P<name>\S+)\s*:\s*" \
         r"(?P<values>.*)$")
     criterion_inclusiveness_table = {
-        'InclusiveCriterion' : True,
-        'ExclusiveCriterion' : False}
-    all_criteria = []
+        'InclusiveCriterion' : "inclusive",
+        'ExclusiveCriterion' : "exclusive"}
 
-    # Parse the criteria file
-    for line_number, line in enumerate(args.criteria, 1):
+    all_criteria = []
+    for line_number, line in enumerate(criteriaFile):
         match = criteria_pattern.match(line)
         if not match:
             raise ValueError("The following line is invalid: {}:{}\n{}".format(
-                args.criteria.name, line_number, line))
+                criteriaFile.name, line_number, line))
 
         criterion_name = match.groupdict()['name']
         criterion_type = match.groupdict()['type']
@@ -207,13 +125,14 @@ if __name__ == "__main__":
             "inclusive" : criterion_inclusiveness,
             "values" : criterion_values})
 
-    #
-    # EDD files (aka ".pfw" files)
-    #
+    return all_criteria
+
+def parseEdd(EDDFiles):
     parsed_edds = []
-    for edd_file in args.edd_files:
+
+    for edd_file in EDDFiles:
         try:
-            root = parser = EddParser.Parser().parse(edd_file, args.verbose)
+            root = EddParser.Parser().parse(edd_file)
         except EddParser.MySyntaxError as ex:
             logging.critical(str(ex))
             logging.info("EXIT ON FAILURE")
@@ -227,105 +146,84 @@ if __name__ == "__main__":
             exit(1)
 
         parsed_edds.append((edd_file.name, root))
+    return parsed_edds
 
-    # We need to modify the toplevel configuration file to account for differences
-    # between development setup and target (installation) setup, in particular, the
-    # TuningMode must be enforced, regardless of what will be allowed on the target
-    with tempfile.NamedTemporaryFile(mode='w') as fake_toplevel_config:
-        install_path = os.path.dirname(os.path.realpath(args.toplevel_config))
-        hostConfig.configure(
-                infile=args.toplevel_config,
-                outfile=fake_toplevel_config,
-                structPath=install_path)
-        fake_toplevel_config.flush()
-
-        # Create a new Pfw instance
-        pfw = PyPfw.ParameterFramework(fake_toplevel_config.name)
-
+def generateDomainCommands(logging, all_criteria, initial_settings, xml_domain_files, parsed_edds):
         # create and inject all the criteria
         logging.info("Creating all criteria")
         for criterion in all_criteria:
-            criterion_type = pfw.createSelectionCriterionType(criterion['inclusive'])
+            yield ["createSelectionCriterion", criterion['inclusive'],
+                   criterion['name']] + criterion['values']
 
-            for numerical, literal in enumerate(criterion['values']):
-                if criterion['inclusive']:
-                    # inclusive criteria are "bitfields"
-                    numerical = 1 << numerical
+        yield ["start"]
 
-                ok = criterion_type.addValuePair(numerical, literal)
-                if not ok:
-                    logging.critical("valuepair {}/{} rejected for {}".format(
-                        numerical, literal, criterion['name']))
-                    exit(1)
+        # Import initial settings file
+        if initial_settings:
+            logging.info("Importing initial settings file {}".format(initial_settings))
+            yield ["importDomainsWithSettingsXML", initial_settings]
 
-            # we don't need the reference to the created criterion type; ignore the
-            # return value
-            pfw.createSelectionCriterion(criterion['name'], criterion_type)
+        # Import each standalone domain files
+        for domain_file in xml_domain_files:
+            logging.info("Importing single domain file {}".format(domain_file))
+            yield ["importDomainWithSettingsXML", domain_file]
 
-        # Set failure conditions
-        pfw.setFailureOnMissingSubsystem(False)
-        pfw.setFailureOnFailedSettingsLoad(False)
-        if args.validate:
-            pfw.setValidateSchemasOnStart(True)
-            if args.schemas_dir is not None:
-                schemas_dir = args.schemas_dir
-            else:
-                schemas_dir = os.path.join(install_path, "Schemas")
-            pfw.setSchemaFolderLocation(schemas_dir)
+        # Generate the script for each EDD file
+        for filename, parsed_edd in parsed_edds:
+            logging.info("Translating and injecting EDD file {}".format(filename))
+            translator = PfwScriptTranslator()
+            parsed_edd.translate(translator)
+            for command in translator.getScript():
+                yield command
 
-        logger = PfwLogger()
-        pfw.setLogger(logger)
+def main():
+    logging.root.setLevel(logging.INFO)
+    args = parseArgs()
 
-        # Disable the remote interface because we don't need it and it might
-        # get in the way (e.g. the port is already in use)
-        pfw.setForceNoRemoteInterface(True)
+    all_criteria = parseCriteria(args.criteria)
 
-        # Finally, start the Pfw
-        ok, error = pfw.start()
-        if not ok:
-            logging.critical("Error while starting the pfw: {}".format(error))
-            exit(1)
+    #
+    # EDD files (aka ".pfw" files)
+    #
+    parsed_edds = parseEdd(args.edd_files)
 
-    ok, error = pfw.setTuningMode(True)
-    if not ok:
-        logging.critical(error)
-        exit(1)
+    # We need to modify the toplevel configuration file to account for differences
+    # between development setup and target (installation) setup, in particular, the
+    # TuningMwith ode must be enforced, regardless of what will be allowed on the target
+    fake_toplevel_config = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix=".xml",
+                                                       prefix="TMPdomainGeneratorPFConfig_")
 
-    # Import initial settings file
+    install_path = os.path.dirname(os.path.realpath(args.toplevel_config))
+    hostConfig.configure(
+            infile=args.toplevel_config,
+            outfile=fake_toplevel_config,
+            structPath=install_path)
+    fake_toplevel_config.close()
+
+    # Create the connector. Pipe its input to us in order to write commands;
+    # connect its output to stdout in order to have it dump the domains
+    # there; connect its error output to stderr.
+    connector = subprocess.Popen(["domainGeneratorConnector",
+                            fake_toplevel_config.name,
+                            'verbose' if args.verbose else 'no-verbose',
+                            'validate' if args.validate else 'no-validate',
+                            args.schemas_dir],
+                           stdout=sys.stdout, stdin=subprocess.PIPE, stderr=sys.stderr)
+
+    initial_settings = None
     if args.initial_settings:
         initial_settings = os.path.realpath(args.initial_settings)
-        logging.info(
-            "Importing initial settings file {}".format(initial_settings))
-        ok, error = pfw.importDomainsXml(initial_settings, True, True)
-        if not ok:
-            logging.critical(error)
-            exit(1)
 
-    # Import each standalone domain files
-    for domain_file in args.xml_domain_files:
-        logging.info("Importing single domain file {}".format(domain_file))
-        ok, error = pfw.importSingleDomainXml(os.path.realpath(domain_file),
-                                              False, True, True)
-        if not ok:
-            logging.critical(error)
-            exit(1)
+    for command in generateDomainCommands(logging, all_criteria, initial_settings,
+                                       args.xml_domain_files, parsed_edds):
+        connector.stdin.write('\0'.join(command))
+        connector.stdin.write("\n")
 
-    # Parse and inject each EDD file
-    error_handler = PfwTranslationErrorHandler()
-    translator = PfwTranslator(pfw, error_handler)
+    # Closing the connector's input triggers the domain generation
+    connector.stdin.close()
+    connector.wait()
+    os.remove(fake_toplevel_config.name)
+    return connector.returncode
 
-    for filename, parsed_edd in parsed_edds:
-        logging.info("Translating and injecting EDD file {}".format(filename))
-        parsed_edd.translate(translator)
-        if error_handler.hasFailed():
-            logging.error("Error while importing parsed EDD files.\n")
-            exit(1)
-
-    # dirty hack: we change the schema location (right before exporting the
-    # domains) to their location on the target (which may be different than on
-    # the machine that is generating the domains)
-    pfw.setSchemaFolderLocation(args.target_schemas_dir)
-
-    # Export the resulting settings to the standard output
-    ok, domains, error = pfw.exportDomainsXml("", True, False)
-    sys.stdout.write(domains)
+# If this file is directly executed
+if __name__ == "__main__":
+    exit(main())

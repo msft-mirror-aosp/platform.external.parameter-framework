@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, Intel Corporation
+ * Copyright (c) 2011-2015, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -31,6 +31,9 @@
 #pragma once
 #include "XmlElement.h"
 #include "XmlSerializingContext.h"
+
+#include "NonCopyable.hpp"
+
 #include <string>
 
 struct _xmlDoc;
@@ -44,7 +47,7 @@ struct _xmlError;
   * for different purposes by implementing the populate method and then
   * use it with any existing implementation of CXmlDocSink.
   */
-class CXmlDocSource
+class CXmlDocSource : private utility::NonCopyable
 {
 public:
     /**
@@ -54,23 +57,21 @@ public:
       * @param[in] pRootNode a pointer to the root element of the document.
       * @param[in] bValidateWithSchema a boolean that toggles schema validation
       */
-    CXmlDocSource(_xmlDoc* pDoc, bool bValidateWithSchema = false, _xmlNode* pRootNode = NULL);
+    CXmlDocSource(_xmlDoc *pDoc, bool bValidateWithSchema = false, _xmlNode *pRootNode = NULL);
 
     /**
       * Constructor
       *
       * @param[out] pDoc a pointer to the xml document that will be filled by the class
-      * @param[in] strXmlSchemaFile a string containing the path to the schema file
       * @param[in] strRootElementType a string containing the root element type
       * @param[in] strRootElementName a string containing the root element name
       * @param[in] strNameAttributeName a string containing the name of the root name attribute
       * @param[in] bValidateWithSchema a boolean that toggles schema validation
       */
-    CXmlDocSource(_xmlDoc* pDoc, bool bValidateWithSchema,
-                           const std::string& strXmlSchemaFile = "",
-                           const std::string& strRootElementType = "",
-                           const std::string& strRootElementName = "",
-                           const std::string& strNameAttributeName = "");
+    CXmlDocSource(_xmlDoc *pDoc, bool bValidateWithSchema,
+                  const std::string &strRootElementType = "",
+                  const std::string &strRootElementName = "",
+                  const std::string &strNameAttributeName = "");
 
     /**
       * Destructor
@@ -84,14 +85,14 @@ public:
       *
       * @return false if there are any error
       */
-    virtual bool populate(CXmlSerializingContext& serializingContext);
+    virtual bool populate(CXmlSerializingContext &serializingContext);
 
     /**
       * Method that returns the root element of the Xml tree.
       *
       * @param[out] xmlRootElement a reference to the CXmleElement destination
       */
-    void getRootElement(CXmlElement& xmlRootElement) const;
+    void getRootElement(CXmlElement &xmlRootElement) const;
 
     /**
       * Getter method.
@@ -99,6 +100,19 @@ public:
       * @return the root element's name
       */
     std::string getRootElementName() const;
+
+    /** Get the Schemas' base (folder) URI
+     */
+    std::string getSchemaBaseUri();
+
+    /** Set the Schema's base (folder) URI
+     *
+     * The schema for validating the XML document will be searched for in that
+     * folder.
+     *
+     * @param[in] uri The Schemas' base URI
+     */
+    void setSchemaBaseUri(const std::string &uri);
 
     /**
       * Getter method.
@@ -108,7 +122,7 @@ public:
       *
       * @return the value of the root's attribute named as strAttributeName
       */
-    std::string getRootElementAttributeString(const std::string& strAttributeName) const;
+    std::string getRootElementAttributeString(const std::string &strAttributeName) const;
 
     /**
       * Getter method.
@@ -117,16 +131,7 @@ public:
       *
       * @return the document _pDoc
       */
-    _xmlDoc* getDoc() const;
-
-    /**
-      * Method that validates the Xml doc contained in pDoc
-      *
-      * @param[out] serializingContext is used as error output
-      *
-      * @return false if any error occurs
-      */
-    virtual bool validate(CXmlSerializingContext& serializingContext);
+    _xmlDoc *getDoc() const;
 
     /**
     * Method that checks that the xml document has been correctly parsed.
@@ -136,6 +141,23 @@ public:
     virtual bool isParsable() const;
 
     /**
+     * Helper method to build final URI from base and relative uri/path
+     *
+     * base = "/path/to/file.xml"
+     *  - uri                   - returned value
+     *  .                       /path/to/
+     *  file.xsd                /path/to/file.xsd
+     *  ../from/file.xsd        /path/from/file.xsd
+     *  /path2/file.xsd         /path2/file.xsd
+     *
+     * @param[in] base uri, if base is directory, it must contains separator last
+     * @param[in] relative uri
+    *
+    * @return new made URI if succeeded relative input otherwise
+     */
+    static std::string mkUri(const std::string &base, const std::string &relative);
+
+    /**
      * Helper method for creating an xml document from either a file or a
      * string.
      *
@@ -143,51 +165,29 @@ public:
      * @param[in] fromFile true if source is a filename, false if source is an xml
      *            represents an xml document
      * @param[in] xincludes if true, process xincludes tags
-     * @param[out] errorMsg used as error output
+     * @param[in] serializingContext will receive any serialization error
      */
-    static _xmlDoc* mkXmlDoc(const std::string& source, bool fromFile, bool xincludes, std::string& errorMsg);
+    static _xmlDoc *mkXmlDoc(const std::string &source, bool fromFile, bool xincludes,
+                             CXmlSerializingContext &serializingContext);
 
 protected:
-
     /**
       * Doc
       */
-    _xmlDoc* _pDoc;
+    _xmlDoc *_pDoc;
 
     /**
       * Root node
       */
-    _xmlNode* _pRootNode;
-
-    /**
-      * libxml2 library cleanup
-      */
-    static bool _bLibXml2CleanupScheduled;
+    _xmlNode *_pRootNode;
 
 private:
-
-    /**
-      * Method that initializes class internal attributes in constructor
-      */
-    void init();
-
     /** Method that check the validity of the document with the xsd file.
       *
       * @return true if document is valid, false if any error occures
       */
     bool isInstanceDocumentValid();
-
-    /** Validity error display method
-      *
-      * @param[in] pUserData pointer to the data to validate
-      * @param[out] pError is the xml error output
-      */
-    static void schemaValidityStructuredErrorFunc(void* pUserData, _xmlError* pError);
-
-    /**
-      * Schema file
-      */
-    std::string _strXmlSchemaFile;
+    std::string getSchemaUri() const;
 
     /**
       * Element type info
@@ -208,4 +208,6 @@ private:
       * Boolean that enables the validation via xsd files
       */
     bool _bValidateWithSchema;
+
+    std::string _schemaBaseUri;
 };

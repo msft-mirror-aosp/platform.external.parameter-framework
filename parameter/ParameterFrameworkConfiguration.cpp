@@ -31,11 +31,6 @@
 
 #define base CElement
 
-CParameterFrameworkConfiguration::CParameterFrameworkConfiguration()
-    : _bTuningAllowed(false), _uiServerPort(0)
-{
-}
-
 std::string CParameterFrameworkConfiguration::getKind() const
 {
     return "ParameterFrameworkConfiguration";
@@ -47,7 +42,7 @@ bool CParameterFrameworkConfiguration::childrenAreDynamic() const
 }
 
 // System class name
-const std::string& CParameterFrameworkConfiguration::getSystemClassName() const
+const std::string &CParameterFrameworkConfiguration::getSystemClassName() const
 {
     return _strSystemClassName;
 }
@@ -65,16 +60,17 @@ uint16_t CParameterFrameworkConfiguration::getServerPort() const
 }
 
 // From IXmlSink
-bool CParameterFrameworkConfiguration::fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& serializingContext)
+bool CParameterFrameworkConfiguration::fromXml(const CXmlElement &xmlElement,
+                                               CXmlSerializingContext &serializingContext)
 {
     // System class name
-    _strSystemClassName = xmlElement.getAttributeString("SystemClassName");
+    xmlElement.getAttribute("SystemClassName", _strSystemClassName);
 
     // Tuning allowed
-    _bTuningAllowed = xmlElement.getAttributeBoolean("TuningAllowed");
+    xmlElement.getAttribute("TuningAllowed", _bTuningAllowed);
 
     // Server port
-    _uiServerPort = (uint16_t)xmlElement.getAttributeInteger("ServerPort");
+    xmlElement.getAttribute("ServerPort", _uiServerPort);
 
     // Base
     return base::fromXml(xmlElement, serializingContext);

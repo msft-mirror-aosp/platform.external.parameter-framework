@@ -26,18 +26,15 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-add_executable(test-platform
-    main.cpp
-    TestPlatform.cpp)
+if(NETWORKING)
+    add_executable(test-platform
+        main.cpp
+        TestPlatform.cpp)
 
-# FIXME: Supress the need for the -Wno-unused-parameter
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-parameter")
+    target_link_libraries(test-platform
+            PRIVATE parameter pfw_utility remote-processor)
+    # Workaround because asio is still leaking to test-platform
+    target_link_libraries(test-platform PRIVATE asio)
 
-include_directories(
-    "${PROJECT_SOURCE_DIR}/parameter/include"
-    "${PROJECT_SOURCE_DIR}/remote-processor"
-    "${PROJECT_SOURCE_DIR}/utility")
-
-target_link_libraries(test-platform parameter remote-processor)
-
-install(TARGETS test-platform RUNTIME DESTINATION bin)
+    install(TARGETS test-platform RUNTIME DESTINATION bin)
+endif()

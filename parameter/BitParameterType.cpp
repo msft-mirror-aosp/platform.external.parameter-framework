@@ -39,7 +39,7 @@
 
 using std::string;
 
-CBitParameterType::CBitParameterType(const string& strName) : base(strName), _uiBitPos(0), _uiBitSize(0), _uiMax(uint64_t(-1))
+CBitParameterType::CBitParameterType(const string &strName) : base(strName)
 {
 }
 
@@ -50,46 +50,49 @@ string CBitParameterType::getKind() const
 }
 
 // Element properties
-void CBitParameterType::showProperties(string& strResult) const
+void CBitParameterType::showProperties(string &strResult) const
 {
     base::showProperties(strResult);
 
     // Bit Pos
     strResult += "Bit pos: ";
-    strResult += CUtility::toString(_uiBitPos);
+    strResult += std::to_string(_bitPos);
     strResult += "\n";
 
     // Bit size
     strResult += "Bit size: ";
-    strResult += CUtility::toString(_uiBitSize);
+    strResult += std::to_string(_uiBitSize);
     strResult += "\n";
 
     // Max
     strResult += "Max: ";
-    strResult += CUtility::toString(_uiMax);
+    strResult += std::to_string(_uiMax);
     strResult += "\n";
 }
 
 // From IXmlSink
-bool CBitParameterType::fromXml(const CXmlElement& xmlElement, CXmlSerializingContext& serializingContext)
+bool CBitParameterType::fromXml(const CXmlElement &xmlElement,
+                                CXmlSerializingContext &serializingContext)
 {
     // Pos
-    _uiBitPos = xmlElement.getAttributeInteger("Pos");
+    xmlElement.getAttribute("Pos", _bitPos);
 
     // Size
-    _uiBitSize = xmlElement.getAttributeInteger("Size");
+    xmlElement.getAttribute("Size", _uiBitSize);
 
     // Validate bit pos and size still fit into parent type
-    const CBitParameterBlockType* pBitParameterBlockType = static_cast<const CBitParameterBlockType*>(getParent());
+    const CBitParameterBlockType *pBitParameterBlockType =
+        static_cast<const CBitParameterBlockType *>(getParent());
 
-    uint32_t uiParentBlockBitSize = pBitParameterBlockType->getSize() * 8;
+    size_t uiParentBlockBitSize = pBitParameterBlockType->getSize() * 8;
 
-    if (_uiBitPos + _uiBitSize > uiParentBlockBitSize) {
+    if (_bitPos + _uiBitSize > uiParentBlockBitSize) {
 
         // Range exceeded
-	std::ostringstream strStream;
+        std::ostringstream strStream;
 
-        strStream << "Pos and Size attributes inconsistent with maximum container element size (" << uiParentBlockBitSize << " bits) for " + getKind();
+        strStream << "Pos and Size attributes inconsistent with maximum container element size ("
+                  << uiParentBlockBitSize << " bits) for " + getKind();
 
         serializingContext.setError(strStream.str());
 
@@ -97,24 +100,18 @@ bool CBitParameterType::fromXml(const CXmlElement& xmlElement, CXmlSerializingCo
     }
 
     // Max
-    if (xmlElement.hasAttribute("Max")) {
+    _uiMax = getMaxEncodableValue();
+    if (xmlElement.getAttribute("Max", _uiMax) && (_uiMax > getMaxEncodableValue())) {
 
-        _uiMax = xmlElement.getAttributeInteger("Max");
+        // Max value exceeded
+        std::ostringstream strStream;
 
-        if (_uiMax > getMaxEncodableValue()) {
+        strStream << "Max attribute inconsistent with maximum encodable size ("
+                  << getMaxEncodableValue() << ") for " + getKind();
 
-            // Max value exceeded
-	    std::ostringstream strStream;
+        serializingContext.setError(strStream.str());
 
-            strStream << "Max attribute inconsistent with maximum encodable size (" << getMaxEncodableValue() << ") for " + getKind();
-
-            serializingContext.setError(strStream.str());
-
-            return false;
-        }
-    } else {
-
-        _uiMax = getMaxEncodableValue();
+        return false;
     }
 
     // Base
@@ -122,24 +119,23 @@ bool CBitParameterType::fromXml(const CXmlElement& xmlElement, CXmlSerializingCo
 }
 
 // Conversion
-bool CBitParameterType::toBlackboard(const string& strValue, uint64_t& uiValue, CParameterAccessContext& parameterAccessContext) const
+bool CBitParameterType::toBlackboard(const string &strValue, uint64_t &uiValue,
+                                     CParameterAccessContext &parameterAccessContext) const
 {
-    // Hexa
-    bool bValueProvidedAsHexa = !strValue.compare(0, 2, "0x");
-
     // Get value
     uint64_t uiConvertedValue = strtoull(strValue.c_str(), NULL, 0);
 
     if (uiConvertedValue > _uiMax) {
 
         // Range exceeded
-	std::ostringstream strStream;
+        std::ostringstream strStream;
 
         strStream << "Value " << strValue << " standing out of admitted range [";
 
-        if (bValueProvidedAsHexa) {
+        if (utility::isHexadecimal(strValue)) {
 
-            strStream << "0x0, " << "0x" << std::hex << std::uppercase;
+            strStream << "0x0, "
+                      << "0x" << std::hex << std::uppercase;
         } else {
 
             strStream << "0, ";
@@ -152,14 +148,15 @@ bool CBitParameterType::toBlackboard(const string& strValue, uint64_t& uiValue, 
     }
 
     // Do bitwise RMW operation
-    uiValue = (uiValue & ~getMask()) | (uiConvertedValue << _uiBitPos);
+    uiValue = (uiValue & ~getMask()) | (uiConvertedValue << _bitPos);
 
     return true;
 }
 
-void CBitParameterType::fromBlackboard(string& strValue, const uint64_t& uiValue, CParameterAccessContext& parameterAccessContext) const
+void CBitParameterType::fromBlackboard(string &strValue, const uint64_t &uiValue,
+                                       CParameterAccessContext &parameterAccessContext) const
 {
-    uint64_t uiConvertedValue = (uiValue & getMask()) >> _uiBitPos;
+    uint64_t uiConvertedValue = (uiValue & getMask()) >> _bitPos;
 
     // Format
     std::ostringstream strStream;
@@ -177,7 +174,8 @@ void CBitParameterType::fromBlackboard(string& strValue, const uint64_t& uiValue
 
 // Value access
 // Integer
-bool CBitParameterType::toBlackboard(uint64_t uiUserValue, uint64_t& uiValue, CParameterAccessContext& parameterAccessContext) const
+bool CBitParameterType::toBlackboard(uint64_t uiUserValue, uint64_t &uiValue,
+                                     CParameterAccessContext &parameterAccessContext) const
 {
     if (uiUserValue > _uiMax) {
 
@@ -187,16 +185,15 @@ bool CBitParameterType::toBlackboard(uint64_t uiUserValue, uint64_t& uiValue, CP
     }
 
     // Do bitwise RMW operation
-    uiValue = (uiValue & ~getMask()) | (uiUserValue << _uiBitPos);
+    uiValue = (uiValue & ~getMask()) | (uiUserValue << _bitPos);
 
     return true;
 }
 
-void CBitParameterType::fromBlackboard(uint32_t& uiUserValue, uint64_t uiValue, CParameterAccessContext& parameterAccessContext) const
+void CBitParameterType::fromBlackboard(uint32_t &userValue, uint64_t value,
+                                       CParameterAccessContext & /*ctx*/) const
 {
-    (void)parameterAccessContext;
-
-    uiUserValue = (uiValue & getMask()) >> _uiBitPos;
+    userValue = static_cast<uint32_t>((value & getMask()) >> _bitPos);
 }
 
 // Access from area configuration
@@ -206,12 +203,12 @@ uint64_t CBitParameterType::merge(uint64_t uiOriginData, uint64_t uiNewData) con
 }
 
 // Bit Size
-uint32_t CBitParameterType::getBitSize() const
+size_t CBitParameterType::getBitSize() const
 {
     return _uiBitSize;
 }
 
-CInstanceConfigurableElement* CBitParameterType::doInstantiate() const
+CInstanceConfigurableElement *CBitParameterType::doInstantiate() const
 {
     return new CBitParameter(getName(), this);
 }
@@ -225,13 +222,13 @@ uint64_t CBitParameterType::getMaxEncodableValue() const
 // Biwise mask
 uint64_t CBitParameterType::getMask() const
 {
-    return getMaxEncodableValue() << _uiBitPos;
+    return getMaxEncodableValue() << _bitPos;
 }
 
 // Check data has no bit set outside available range
 bool CBitParameterType::isEncodable(uint64_t uiData) const
 {
-    uint32_t uiShift = 8 * sizeof(uiData) - _uiBitSize;
+    size_t uiShift = 8 * sizeof(uiData) - _uiBitSize;
 
     if (uiShift) {
 
@@ -243,17 +240,17 @@ bool CBitParameterType::isEncodable(uint64_t uiData) const
 }
 
 // From IXmlSource
-void CBitParameterType::toXml(CXmlElement& xmlElement, CXmlSerializingContext& serializingContext) const
+void CBitParameterType::toXml(CXmlElement &xmlElement,
+                              CXmlSerializingContext &serializingContext) const
 {
     // Position
-    xmlElement.setAttributeString("Pos", CUtility::toString(_uiBitPos));
+    xmlElement.setAttribute("Pos", _bitPos);
 
     // Size
-    xmlElement.setAttributeString("Size", CUtility::toString(_uiBitSize));
+    xmlElement.setAttribute("Size", _uiBitSize);
 
     // Maximum
-    xmlElement.setAttributeString("Max", CUtility::toString(_uiMax));
+    xmlElement.setAttribute("Max", _uiMax);
 
     base::toXml(xmlElement, serializingContext);
-
 }

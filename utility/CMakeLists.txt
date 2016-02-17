@@ -26,11 +26,35 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+if (WIN32)
+    set(UTILITY_OS_SPECIFIC_FILES windows/DynamicLibrary.cpp)
+else ()
+    set(UTILITY_OS_SPECIFIC_FILES posix/DynamicLibrary.cpp)
+endif ()
+
 add_library(pfw_utility STATIC
+    ${UTILITY_OS_SPECIFIC_FILES}
     Tokenizer.cpp
     Utility.cpp
-    FullIo.cpp
-    NaiveTokenizer.cpp)
+    DynamicLibrary.cpp)
 
-# '-fPIC' needed for linking against shared libraries (e.g. libparameter)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+target_include_directories(pfw_utility PUBLIC .)
+
+# Needed for linking against shared libraries on Linux (no-op on Windows)
+set_target_properties(pfw_utility PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+
+install(FILES
+    NonCopyable.hpp
+    ErrorContext.hpp
+    Utility.h
+    convert.hpp
+    DESTINATION "include/utility")
+
+if(BUILD_TESTING)
+    # Add unit test
+    add_executable(utilityUnitTest test/utility.cpp)
+
+    target_link_libraries(utilityUnitTest pfw_utility catch)
+    add_test(NAME utilityUnitTest
+             COMMAND utilityUnitTest)
+endif()

@@ -40,10 +40,10 @@ class CRule : public CElement
 
 public:
     // Parse
-    virtual bool parse(CRuleParser& ruleParser, std::string& strError) = 0;
+    virtual bool parse(CRuleParser &ruleParser, std::string &strError) = 0;
 
     // Dump
-    virtual void dump(std::string& strResult) const = 0;
+    virtual std::string dump() const = 0;
 
     // Rule check
     virtual bool matches() const = 0;
