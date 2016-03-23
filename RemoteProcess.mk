@@ -32,7 +32,7 @@ else
 SUFFIX :=
 endif
 
-LOCAL_MODULE := remote_process$(SUFFIX)
+LOCAL_MODULE := remote-process$(SUFFIX)
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_SRC_FILES := upstream/remote-process/main.cpp
 LOCAL_C_INCLUDES := \
@@ -40,10 +40,9 @@ LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/support/android/asio
 
 LOCAL_CFLAGS := \
-    -DASIO_STANDALONE -frtti -isystem \
-    $(LOCAL_PATH)/asio/include -DASIO_DISABLE_STD_SYSTEM_ERROR \
-    -fexceptions
+    -frtti -fexceptions \
+    -isystem $(LOCAL_PATH)/asio/include
 
-LOCAL_SHARED_LIBRARIES := libremote-processor$(SUFFIX)
+LOCAL_SHARED_LIBRARIES := libremote-processor$(PFW_NETWORKING_SUFFIX)$(SUFFIX)
 
 LOCAL_CLANG := true

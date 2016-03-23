@@ -43,23 +43,21 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/upstream/test/test-platform
 LOCAL_STATIC_LIBRARIES := libpfw_utility$(SUFFIX)
 LOCAL_SHARED_LIBRARIES := \
     libparameter$(SUFFIX) \
-    libremote-processor$(SUFFIX)
+    libremote-processor$(PFW_NETWORKING_SUFFIX)$(SUFFIX)
 
 ifeq ($(PFW_NETWORKING),false)
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/upstream/asio/stub
-LOCAL_CFLAGS := -frtti -isystem
-LOCAL_CPPFLAGS += -fexceptions
+LOCAL_CFLAGS := -frtti -fexceptions
 
 else
 
 LOCAL_C_INCLUDES += \
-    $(LOCAL_PATH)/asio/include \
     $(LOCAL_PATH)/support/android/asio
 
-LOCAL_CFLAGS +=  \
-    -DASIO_STANDALONE -frtti -isystem \
-    -DASIO_DISABLE_STD_SYSTEM_ERROR -fexceptions
+LOCAL_CFLAGS :=  \
+    -frtti -fexceptions \
+    -isystem $(LOCAL_PATH)/asio/include
 
 endif #ifeq ($(PFW_NETWORKING),false)
 

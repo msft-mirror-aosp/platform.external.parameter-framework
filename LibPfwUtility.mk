@@ -38,17 +38,17 @@ LOCAL_SRC_FILES := \
     upstream/utility/DynamicLibrary.cpp \
     upstream/utility/posix/DynamicLibrary.cpp \
     upstream/utility/Tokenizer.cpp \
-    upstream/utility/Utility.cpp \
+    upstream/utility/Utility.cpp
 
 target_copy_headers := \
     upstream/utility/NonCopyable.hpp \
     upstream/utility/ErrorContext.hpp \
     upstream/utility/Utility.h \
-    upstream/utility/convert.hpp \
+    upstream/utility/convert.hpp
 
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/upstream/utility/
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/upstream/utility/
-LOCAL_CFLAGS += -frtti -fexceptions
+LOCAL_CFLAGS := -frtti -fexceptions
 
 LOCAL_COPY_HEADERS := $(target_copy_headers)
 
