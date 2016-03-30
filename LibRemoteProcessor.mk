@@ -32,7 +32,7 @@ else
 SUFFIX :=
 endif
 
-LOCAL_MODULE := libremote-processor$(SUFFIX)
+LOCAL_MODULE := libremote-processor$(PFW_NETWORKING_SUFFIX)$(SUFFIX)
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 LOCAL_SRC_FILES := \
     upstream/remote-processor/RequestMessage.cpp \
@@ -46,8 +46,7 @@ LOCAL_EXPORT_C_INCLUDE_DIRS := \
     $(LOCAL_PATH)/support/android/remote-processor/
 
 LOCAL_STATIC_LIBRARIES := libpfw_utility$(SUFFIX)
-LOCAL_CFLAGS := -frtti -isystem
-LOCAL_CPPFLAGS += -fexceptions
+LOCAL_CFLAGS := -frtti -fexceptions
 
 LOCAL_C_INCLUDES := $(LOCAL_EXPORT_C_INCLUDE_DIRS)
 
@@ -58,13 +57,12 @@ LOCAL_C_INCLUDES += $(LOCAL_PATH)/upstream/asio/stub
 else
 
 LOCAL_C_INCLUDES += \
-    $(LOCAL_PATH)/asio/include \
     $(LOCAL_PATH)/support/android/asio
 
-LOCAL_CFLAGS +=  \
-    -DASIO_STANDALONE -frtti \
-    -DASIO_DISABLE_STD_SYSTEM_ERROR -fexceptions
+LOCAL_CFLAGS :=  \
+    -frtti -fexceptions \
+    -isystem $(LOCAL_PATH)/asio/include
 
-endif #ifneq ($(PFW_NETWORKING),false)
+endif #ifeq ($(PFW_NETWORKING),false)
 
 LOCAL_CLANG := true

@@ -34,6 +34,7 @@ ifneq ($(USE_CUSTOM_PARAMETER_FRAMEWORK), true)
 #
 ifeq ($(TARGET_BUILD_VARIANT),user)
 PFW_NETWORKING := false
+PFW_NETWORKING_SUFFIX := -no-networking
 endif
 
 LOCAL_PATH := $(call my-dir)
@@ -95,8 +96,5 @@ endif #ifneq ($(PFW_NETWORKING),false)
 
 include $(LOCAL_PATH)/XmlGenerator.mk
 include $(LOCAL_PATH)/Schemas.mk
-
-# Clear variables for further use
-PFW_NETWORKING :=
 
 endif #ifneq ($(USE_CUSTOM_PARAMETER_FRAMEWORK), true)
