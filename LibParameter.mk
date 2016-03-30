@@ -142,13 +142,12 @@ LOCAL_COPY_HEADERS := $(common_copy_headers)
 
 LOCAL_C_INCLUDES := $(LOCAL_EXPORT_C_INCLUDE_DIRS)
 
-LOCAL_SHARED_LIBRARIES := libremote-processor$(SUFFIX)
+LOCAL_SHARED_LIBRARIES := libremote-processor$(PFW_NETWORKING_SUFFIX)$(SUFFIX)
 LOCAL_C_INCLUDES += \
     external/libxml2/include \
     external/icu/icu4c/source/common
 
-LOCAL_CFLAGS := -frtti -isystem
-LOCAL_CPPFLAGS += -fexceptions
+LOCAL_CFLAGS := -frtti -fexceptions
 
 LOCAL_STATIC_LIBRARIES := \
     libpfw_utility$(SUFFIX) \
