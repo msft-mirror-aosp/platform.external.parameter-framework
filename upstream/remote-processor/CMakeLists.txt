@@ -40,7 +40,9 @@ generate_export_header(remote-processor
 set(CMAKE_THREAD_PREFER_PTHREAD 1)
 find_package(Threads REQUIRED)
 
-target_link_libraries(remote-processor PRIVATE pfw_utility asio ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(remote-processor PRIVATE pfw_utility asio Threads::Threads)
 
 install(TARGETS remote-processor EXPORT ParameterTargets
-    LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
+    LIBRARY DESTINATION lib COMPONENT runtime
+    RUNTIME DESTINATION bin COMPONENT runtime
+    ARCHIVE DESTINATION lib COMPONENT dev)
