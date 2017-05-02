@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, Intel Corporation
+ * Copyright (c) 2016, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -27,4 +27,49 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#define PARAMETER_FRAMEWORK_VERSION "v3.2.7"
+
+#include <sstream>
+#include <iomanip>
+
+#include "BaseIntegerParameterType.h"
+#include "ParameterAccessContext.h"
+#include "ParameterAdaptation.h"
+
+// Kind
+std::string CBaseIntegerParameterType::getKind() const
+{
+    return "IntegerParameter";
+}
+
+// Deal with adaption node
+bool CBaseIntegerParameterType::childrenAreDynamic() const
+{
+    return true;
+}
+
+bool CBaseIntegerParameterType::fromBlackboard(uint32_t &uiUserValue, uint32_t uiValue,
+                                               CParameterAccessContext & /*ctx*/) const
+{
+    // Do assign
+    uiUserValue = uiValue;
+
+    return true;
+}
+bool CBaseIntegerParameterType::fromBlackboard(int32_t &iUserValue, uint32_t uiValue,
+                                               CParameterAccessContext & /*ctx*/) const
+{
+    int32_t iValue = uiValue;
+
+    // Sign extend
+    signExtend(iValue);
+
+    // Do assign
+    iUserValue = iValue;
+
+    return true;
+}
+// Adaptation element retrieval
+const CParameterAdaptation *CBaseIntegerParameterType::getParameterAdaptation() const
+{
+    return static_cast<const CParameterAdaptation *>(findChildOfKind("Adaptation"));
+}

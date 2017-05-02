@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, Intel Corporation
+ * Copyright (c) 2016, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -27,4 +27,45 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#define PARAMETER_FRAMEWORK_VERSION "v3.2.7"
+#pragma once
+
+#include "ParameterType.h"
+
+#include <string>
+
+class CParameterAdaptation;
+
+/** Base class for CIntegerParameterType
+ *
+ * CIntegerParameterType is template - this class Contains the parts that do
+ * not depend on template arguments in order to make the implementation more
+ * consise.
+ */
+class CBaseIntegerParameterType : public CParameterType
+{
+public:
+    CBaseIntegerParameterType(const std::string &name) : CParameterType(name){};
+
+    // CElement
+    std::string getKind() const override;
+
+    bool fromBlackboard(uint32_t &uiUserValue, uint32_t uiValue,
+                        CParameterAccessContext &parameterAccessContext) const override;
+    bool fromBlackboard(int32_t &iUserValue, uint32_t uiValue,
+                        CParameterAccessContext &parameterAccessContext) const override;
+    bool fromBlackboard(double &dUserValue, uint32_t uiValue,
+                        CParameterAccessContext &parameterAccessContext) const override
+    {
+        return CParameterType::fromBlackboard(dUserValue, uiValue, parameterAccessContext);
+    }
+    bool fromBlackboard(std::string &strValue, const uint32_t &value,
+                        CParameterAccessContext &parameterAccessContext) const override = 0;
+
+protected:
+    // Adaptation element retrieval
+    const CParameterAdaptation *getParameterAdaptation() const;
+
+private:
+    // Returns true if children dynamic creation is to be dealt with
+    bool childrenAreDynamic() const override;
+};

@@ -166,7 +166,7 @@ cc_library_shared {
         "upstream/parameter/ParameterMgr.cpp",
         "upstream/parameter/SelectionCriterionType.cpp",
         "upstream/parameter/Subsystem.cpp",
-        "upstream/parameter/IntegerParameterType.cpp",
+        "upstream/parameter/BaseIntegerParameterType.cpp",
         "upstream/parameter/BitParameterType.cpp",
         "upstream/parameter/SelectionCriterion.cpp",
         "upstream/parameter/XmlElementSerializingContext.cpp",

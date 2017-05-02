@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, Intel Corporation
+ * Copyright (c) 2016, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -27,4 +27,47 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#define PARAMETER_FRAMEWORK_VERSION "v3.2.7"
+#pragma once
+
+#include "ElementBuilder.h"
+#include "IntegerParameterType.h"
+
+/** Specialized element builder for IntegerParameterType
+ *
+ * Dispatch to the correct template instance according to the signedness and
+ * size.
+ */
+class IntegerParameterBuilder : public CElementBuilder
+{
+public:
+    CElement *createElement(const CXmlElement &xmlElement) const override
+    {
+        size_t sizeInBits;
+        sizeInBits = xmlElement.getAttribute("Size", sizeInBits) ? sizeInBits : 32;
+
+        bool isSigned = false;
+        xmlElement.getAttribute("Signed", isSigned);
+
+        auto name = xmlElement.getNameAttribute();
+
+        switch (sizeInBits) {
+        case 8:
+            if (isSigned) {
+                return new CIntegerParameterType<true, 8>(name);
+            }
+            return new CIntegerParameterType<false, 8>(name);
+        case 16:
+            if (isSigned) {
+                return new CIntegerParameterType<true, 16>(name);
+            }
+            return new CIntegerParameterType<false, 16>(name);
+        case 32:
+            if (isSigned) {
+                return new CIntegerParameterType<true, 32>(name);
+            }
+            return new CIntegerParameterType<false, 32>(name);
+        default:
+            return nullptr;
+        }
+    }
+};
