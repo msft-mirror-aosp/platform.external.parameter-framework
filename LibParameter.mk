@@ -136,5 +136,3 @@ LOCAL_CFLAGS := -frtti -fexceptions
 LOCAL_STATIC_LIBRARIES := \
     libpfw_utility$(SUFFIX) \
     libxml2
-
-LOCAL_CLANG := true
