@@ -44,5 +44,3 @@ LOCAL_CFLAGS := \
     -isystem $(LOCAL_PATH)/asio/include
 
 LOCAL_SHARED_LIBRARIES := libremote-processor$(PFW_NETWORKING_SUFFIX)$(SUFFIX)
-
-LOCAL_CLANG := true

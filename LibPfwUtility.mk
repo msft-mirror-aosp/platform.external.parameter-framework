@@ -43,5 +43,3 @@ LOCAL_SRC_FILES := \
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/upstream/utility/
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/upstream/utility/
 LOCAL_CFLAGS := -frtti -fexceptions
-
-LOCAL_CLANG := true
