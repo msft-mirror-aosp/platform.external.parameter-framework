@@ -65,3 +65,5 @@ LOCAL_CFLAGS :=  \
     -isystem $(LOCAL_PATH)/asio/include
 
 endif #ifeq ($(PFW_NETWORKING),false)
+
+LOCAL_CFLAGS += -Wno-implicit-fallthrough
