@@ -136,6 +136,7 @@ LOCAL_CFLAGS := -Wall -Werror
 LOCAL_CPPFLAGS := \
     -frtti -fexceptions \
     -Wno-instantiation-after-specialization \
+    -Wno-implicit-fallthrough \
 
 LOCAL_STATIC_LIBRARIES := \
     libpfw_utility$(SUFFIX) \

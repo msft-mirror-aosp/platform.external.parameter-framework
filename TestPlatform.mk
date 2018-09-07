@@ -61,4 +61,4 @@ LOCAL_CFLAGS :=  \
 
 endif #ifeq ($(PFW_NETWORKING),false)
 
-LOCAL_CFLAGS += -Wall -Werror
+LOCAL_CFLAGS += -Wall -Werror -Wno-implicit-fallthrough
