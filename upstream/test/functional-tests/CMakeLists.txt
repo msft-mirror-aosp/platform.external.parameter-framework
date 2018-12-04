@@ -48,6 +48,8 @@ if(BUILD_TESTING)
 
     find_package(LibXml2 REQUIRED)
 
+    target_compile_definitions(parameterFunctionalTest PUBLIC -D PLUGIN_NAME=\"introspection-subsystem\" PLUGIN_PATH=\"\")
+
     target_link_libraries(parameterFunctionalTest
                           PRIVATE parameter
                           PRIVATE pfw_utility catch tmpfile LibXml2::libxml2 introspection-subsystem)
