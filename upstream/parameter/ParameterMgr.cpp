@@ -2856,7 +2856,8 @@ bool CParameterMgr::handleRemoteProcessingInterface(string &strError)
 
     try {
         // The ownership of remoteComandHandler is given to Bg remote processor server.
-        _pRemoteProcessorServer = new BackgroundRemoteProcessorServer(bindAddress, createCommandHandler());
+        _pRemoteProcessorServer =
+            new BackgroundRemoteProcessorServer(bindAddress, createCommandHandler());
     } catch (std::runtime_error &e) {
         strError = string("ParameterMgr: Unable to create Remote Processor Server: ") + e.what();
         return false;
