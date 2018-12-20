@@ -35,6 +35,7 @@ cc_defaults {
         "-fexceptions",
         "-Wall",
         "-Werror",
+        "-Wextra",
     ],
     rtti: true,
 }
@@ -319,6 +320,150 @@ prebuilt_etc_host {
     owner: "intel",
     src: "upstream/schemas/Parameter.xsd",
     sub_dir: "parameter-framework/Schemas",
+}
+
+filegroup {
+    name: "EddParser.py-srcs",
+    srcs: ["upstream/tools/xmlGenerator/EddParser.py"],
+    path: "upstream/tools/xmlGenerator/",
+}
+
+python_library_host {
+    name: "EddParser.py",
+    defaults: ["pfw_defaults"],
+    owner: "intel",
+
+    srcs: [":EddParser.py-srcs"],
+    version: {
+        py2: {
+            enabled: true,
+        },
+        py3: {
+            enabled: false,
+        },
+    },
+}
+
+filegroup {
+    name: "PfwBaseTranslator.py-srcs",
+    srcs: ["upstream/tools/xmlGenerator/PfwBaseTranslator.py"],
+    path: "upstream/tools/xmlGenerator/",
+}
+
+python_library_host {
+    name: "PfwBaseTranslator.py",
+    defaults: ["pfw_defaults"],
+    owner: "intel",
+
+    srcs: [":PfwBaseTranslator.py-srcs"],
+    version: {
+        py2: {
+            enabled: true,
+        },
+        py3: {
+            enabled: false,
+        },
+    },
+}
+
+filegroup {
+    name: "PFWScriptGenerator.py-srcs",
+    srcs: ["upstream/tools/xmlGenerator/PFWScriptGenerator.py"],
+    path: "upstream/tools/xmlGenerator/",
+}
+
+python_library_host {
+    name: "PFWScriptGenerator.py",
+    defaults: ["pfw_defaults"],
+    owner: "intel",
+
+    srcs: [":PFWScriptGenerator.py-srcs"],
+    libs: [
+        "PfwBaseTranslator.py",
+        "EddParser.py",
+    ],
+    version: {
+        py2: {
+            enabled: true,
+        },
+        py3: {
+            enabled: false,
+        },
+    },
+}
+
+cc_prebuilt_binary {
+    name: "updateRoutageDomains.sh",
+    defaults: ["pfw_defaults"],
+    owner: "intel",
+
+    host_supported: true,
+    srcs: ["upstream/tools/xmlGenerator/updateRoutageDomains.sh"],
+}
+
+filegroup {
+    name: "hostConfig.py-srcs",
+    srcs: ["upstream/tools/xmlGenerator/hostConfig.py"],
+    path: "upstream/tools/xmlGenerator/",
+}
+
+python_library_host {
+    name: "hostConfig.py",
+    defaults: ["pfw_defaults"],
+    owner: "intel",
+
+    srcs: [":hostConfig.py-srcs"],
+    version: {
+        py2: {
+            enabled: true,
+        },
+        py3: {
+            enabled: false,
+        },
+    },
+}
+
+python_binary_host {
+    name: "domainGenerator.py",
+    defaults: ["pfw_defaults"],
+    owner: "intel",
+
+    main: "upstream/tools/xmlGenerator/domainGenerator.py",
+    srcs: ["upstream/tools/xmlGenerator/domainGenerator.py"],
+    libs: [
+        "EddParser.py",
+        "hostConfig.py",
+        "PFWScriptGenerator.py",
+    ],
+    version: {
+        py2: {
+            enabled: true,
+        },
+        py3: {
+            enabled: false,
+        },
+    },
+    required: [
+        "domainGeneratorConnector",
+    ],
+}
+
+cc_prebuilt_binary {
+    name: "domainGenerator.sh",
+    defaults: ["pfw_defaults"],
+    owner: "intel",
+
+    host_supported: true,
+    srcs: ["upstream/tools/xmlGenerator/domainGenerator.sh"],
+}
+
+cc_prebuilt_binary {
+    name: "lightRoutingUpdate.sh",
+    defaults: ["pfw_defaults"],
+    owner: "intel",
+
+    host_supported: true,
+    srcs: ["upstream/tools/xmlGenerator/lightRoutingUpdate.sh"],
 }
 
 //////////////////////////////////////////////////
