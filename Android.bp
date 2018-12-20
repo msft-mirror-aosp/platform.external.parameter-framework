@@ -29,6 +29,7 @@
 cc_defaults {
     name: "pfw_defaults",
     host_supported: true,
+    vendor_available: true,
 
     cflags: [
         "-frtti",
@@ -44,6 +45,7 @@ cc_library_static {
     name: "libpfw_utility",
     defaults: ["pfw_defaults"],
     host_supported: true,
+    vendor_available: true,
 
     export_include_dirs: ["upstream/utility"],
 
@@ -89,6 +91,7 @@ cc_library_shared {
 cc_defaults {
     name: "libparameter-defaults",
     defaults: ["pfw_defaults"],
+    vendor_available: true,
 
     cppflags: [
         "-Wno-instantiation-after-specialization",
