@@ -65,7 +65,7 @@ cc_library_shared {
     ],
     shared_libs: [
         "libremote-processor",
-        "libicuuc",
+        "libandroidicu",
     ],
     static_libs: [
         "libpfw_utility",
