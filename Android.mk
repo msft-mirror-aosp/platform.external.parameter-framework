@@ -26,75 +26,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-ifneq ($(USE_CUSTOM_PARAMETER_FRAMEWORK), true)
-
-#
-# Do not allow to use the networking feature through socket (debug purpose of the PFW)
-# for user build.
-#
-ifeq ($(TARGET_BUILD_VARIANT),user)
-PFW_NETWORKING := false
-PFW_NETWORKING_SUFFIX := -no-networking
-endif
-
 LOCAL_PATH := $(call my-dir)
-
-include $(CLEAR_VARS)
-include $(LOCAL_PATH)/LibPfwUtility.mk
-include $(BUILD_STATIC_LIBRARY)
-
-include $(CLEAR_VARS)
-LOCAL_IS_HOST_MODULE := true
-include $(LOCAL_PATH)/LibPfwUtility.mk
-include $(BUILD_HOST_STATIC_LIBRARY)
-
-include $(CLEAR_VARS)
-include $(LOCAL_PATH)/LibRemoteProcessor.mk
-include $(BUILD_SHARED_LIBRARY)
-
-include $(CLEAR_VARS)
-LOCAL_IS_HOST_MODULE := true
-include $(LOCAL_PATH)/LibRemoteProcessor.mk
-LOCAL_LDLIBS += -lpthread
-include $(BUILD_HOST_SHARED_LIBRARY)
-
-# build libparameter
-include $(CLEAR_VARS)
-include $(LOCAL_PATH)/LibParameter.mk
-LOCAL_SHARED_LIBRARIES += libicuuc libdl
-include $(BUILD_SHARED_LIBRARY)
-
-include $(CLEAR_VARS)
-LOCAL_IS_HOST_MODULE := true
-include $(LOCAL_PATH)/LibParameter.mk
-LOCAL_SHARED_LIBRARIES += libicuuc
-LOCAL_LDLIBS := -ldl
-include $(BUILD_HOST_SHARED_LIBRARY)
-
-include $(CLEAR_VARS)
-include $(LOCAL_PATH)/TestPlatform.mk
-include $(BUILD_EXECUTABLE)
-
-include $(CLEAR_VARS)
-LOCAL_IS_HOST_MODULE := true
-include $(LOCAL_PATH)/TestPlatform.mk
-LOCAL_LDLIBS := -lpthread
-include $(BUILD_HOST_EXECUTABLE)
-
-ifneq ($(PFW_NETWORKING),false)
-
-include $(CLEAR_VARS)
-include $(LOCAL_PATH)/RemoteProcess.mk
-include $(BUILD_EXECUTABLE)
-
-include $(CLEAR_VARS)
-LOCAL_IS_HOST_MODULE := true
-include $(LOCAL_PATH)/RemoteProcess.mk
-include $(BUILD_HOST_EXECUTABLE)
-
-endif #ifneq ($(PFW_NETWORKING),false)
 
 include $(LOCAL_PATH)/XmlGenerator.mk
 include $(LOCAL_PATH)/Schemas.mk
-
-endif #ifneq ($(USE_CUSTOM_PARAMETER_FRAMEWORK), true)

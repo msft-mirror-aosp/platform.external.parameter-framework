@@ -1,0 +1,188 @@
+cc_defaults {
+    name: "pfw_defaults",
+    host_supported: true,
+
+    cflags: [
+        "-frtti",
+        "-fexceptions",
+        "-Wall",
+        "-Werror",
+    ],
+    rtti: true,
+}
+
+cc_library_static {
+    name: "libpfw_utility",
+    defaults: ["pfw_defaults"],
+    host_supported: true,
+
+    export_include_dirs: ["upstream/utility"],
+
+    srcs: [
+        "upstream/utility/DynamicLibrary.cpp",
+        "upstream/utility/posix/DynamicLibrary.cpp",
+        "upstream/utility/Tokenizer.cpp",
+        "upstream/utility/Utility.cpp",
+    ],
+}
+
+cc_library_shared {
+    name: "libremote-processor",
+    defaults: ["pfw_defaults"],
+
+    cflags: ["-Wno-implicit-fallthrough"],
+    local_include_dirs: ["upstream/asio/stub"],
+    export_include_dirs: [
+        "upstream/remote-processor",
+        "support/android/remote-processor",
+    ],
+
+    srcs: [
+        "upstream/remote-processor/RequestMessage.cpp",
+        "upstream/remote-processor/Message.cpp",
+        "upstream/remote-processor/AnswerMessage.cpp",
+        "upstream/remote-processor/RemoteProcessorServer.cpp",
+        "upstream/remote-processor/BackgroundRemoteProcessorServer.cpp",
+    ],
+    static_libs: ["libpfw_utility"],
+}
+
+cc_library_shared {
+    name: "libparameter",
+    defaults: ["pfw_defaults"],
+
+    cppflags: [
+        "-Wno-instantiation-after-specialization",
+        "-Wno-implicit-fallthrough",
+    ],
+    export_include_dirs: [
+        "upstream/parameter",
+        "upstream/parameter/log/include",
+        "upstream/parameter/include",
+        "upstream/xmlserializer",
+        "upstream/remote-processor",
+        "support/android/parameter",
+    ],
+    shared_libs: [
+        "libremote-processor",
+        "libandroidicu",
+    ],
+    static_libs: [
+        "libpfw_utility",
+        "libxml2",
+    ],
+
+    srcs: [
+        "upstream/parameter/ParameterMgrPlatformConnector.cpp",
+        "upstream/parameter/LoggingElementBuilderTemplate.cpp",
+        "upstream/parameter/StringParameterType.cpp",
+        "upstream/parameter/SyncerSet.cpp",
+        "upstream/parameter/BitParameter.cpp",
+        "upstream/parameter/BaseParameter.cpp",
+        "upstream/parameter/ParameterBlockType.cpp",
+        "upstream/parameter/FloatingPointParameterType.cpp",
+        "upstream/parameter/SelectionCriteriaDefinition.cpp",
+        "upstream/parameter/EnumValuePair.cpp",
+        "upstream/parameter/SelectionCriteria.cpp",
+        "upstream/parameter/SelectionCriterionRule.cpp",
+        "upstream/parameter/AreaConfiguration.cpp",
+        "upstream/parameter/BitParameterBlockType.cpp",
+        "upstream/parameter/ConfigurationAccessContext.cpp",
+        "upstream/parameter/BitwiseAreaConfiguration.cpp",
+        "upstream/parameter/ArrayParameter.cpp",
+        "upstream/parameter/ParameterBlackboard.cpp",
+        "upstream/parameter/InstanceConfigurableElement.cpp",
+        "upstream/parameter/LogarithmicParameterAdaptation.cpp",
+        "upstream/parameter/ConfigurableDomain.cpp",
+        "upstream/parameter/FormattedSubsystemObject.cpp",
+        "upstream/parameter/MappingData.cpp",
+        "upstream/parameter/SubsystemElementBuilder.cpp",
+        "upstream/parameter/BooleanParameterType.cpp",
+        "upstream/parameter/FixedPointParameterType.cpp",
+        "upstream/parameter/ComponentType.cpp",
+        "upstream/parameter/EnumParameterType.cpp",
+        "upstream/parameter/RuleParser.cpp",
+        "upstream/parameter/VirtualSubsystem.cpp",
+        "upstream/parameter/Element.cpp",
+        "upstream/parameter/ParameterFrameworkConfiguration.cpp",
+        "upstream/parameter/SelectionCriterionLibrary.cpp",
+        "upstream/parameter/StringParameter.cpp",
+        "upstream/parameter/CompoundRule.cpp",
+        "upstream/parameter/ConfigurableDomains.cpp",
+        "upstream/parameter/VirtualSyncer.cpp",
+        "upstream/parameter/MappingContext.cpp",
+        "upstream/parameter/LinearParameterAdaptation.cpp",
+        "upstream/parameter/ComponentLibrary.cpp",
+        "upstream/parameter/BitParameterBlock.cpp",
+        "upstream/parameter/ParameterMgrFullConnector.cpp",
+        "upstream/parameter/ConfigurableElement.cpp",
+        "upstream/parameter/ConfigurableElementAggregator.cpp",
+        "upstream/parameter/SubsystemObject.cpp",
+        "upstream/parameter/TypeElement.cpp",
+        "upstream/parameter/PathNavigator.cpp",
+        "upstream/parameter/ElementLocator.cpp",
+        "upstream/parameter/SimulatedBackSynchronizer.cpp",
+        "upstream/parameter/Parameter.cpp",
+        "upstream/parameter/ComponentInstance.cpp",
+        "upstream/parameter/InstanceDefinition.cpp",
+        "upstream/parameter/SubsystemObjectCreator.cpp",
+        "upstream/parameter/ParameterType.cpp",
+        "upstream/parameter/DomainConfiguration.cpp",
+        "upstream/parameter/PluginLocation.cpp",
+        "upstream/parameter/HardwareBackSynchronizer.cpp",
+        "upstream/parameter/SystemClass.cpp",
+        "upstream/parameter/ElementLibrary.cpp",
+        "upstream/parameter/ParameterAccessContext.cpp",
+        "upstream/parameter/XmlParameterSerializingContext.cpp",
+        "upstream/parameter/ElementHandle.cpp",
+        "upstream/parameter/ParameterMgr.cpp",
+        "upstream/parameter/SelectionCriterionType.cpp",
+        "upstream/parameter/Subsystem.cpp",
+        "upstream/parameter/IntegerParameterType.cpp",
+        "upstream/parameter/BitParameterType.cpp",
+        "upstream/parameter/SelectionCriterion.cpp",
+        "upstream/parameter/XmlElementSerializingContext.cpp",
+        "upstream/parameter/ElementLibrarySet.cpp",
+        "upstream/parameter/FrameworkConfigurationLocation.cpp",
+        "upstream/parameter/ParameterAdaptation.cpp",
+        "upstream/parameter/XmlFileIncluderElement.cpp",
+        "upstream/xmlserializer/XmlElement.cpp",
+        "upstream/xmlserializer/XmlSerializingContext.cpp",
+        "upstream/xmlserializer/XmlMemoryDocSource.cpp",
+        "upstream/xmlserializer/XmlDocSource.cpp",
+        "upstream/xmlserializer/XmlMemoryDocSink.cpp",
+        "upstream/xmlserializer/XmlStreamDocSink.cpp",
+        "upstream/parameter/CommandHandlerWrapper.cpp",
+    ],
+}
+
+cc_binary {
+    name: "test-platform",
+    defaults: ["pfw_defaults"],
+
+    cflags: ["-Wno-implicit-fallthrough"],
+    local_include_dirs: [
+        "upstream/test/test-platform",
+        "upstream/asio/stub",
+    ],
+
+    srcs: [
+        "upstream/test/test-platform/main.cpp",
+        "upstream/test/test-platform/TestPlatform.cpp",
+    ],
+    static_libs: ["libpfw_utility"],
+    shared_libs: [
+        "libparameter",
+        "libremote-processor",
+    ],
+}
+
+cc_binary_host {
+    name: "domainGeneratorConnector",
+    defaults: ["pfw_defaults"],
+
+    owner: "intel",
+    static_libs: ["libpfw_utility"],
+    shared_libs: ["libparameter"],
+    srcs: ["upstream/tools/xmlGenerator/domainGeneratorConnector.cpp"],
+}
