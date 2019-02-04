@@ -1,3 +1,31 @@
+// Copyright (c) 2016, Intel Corporation
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice, this
+// list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright notice,
+// this list of conditions and the following disclaimer in the documentation and/or
+// other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its contributors
+// may be used to endorse or promote products derived from this software without
+// specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+// ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+// ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 cc_defaults {
     name: "pfw_defaults",
     host_supported: true,
@@ -186,3 +214,101 @@ cc_binary_host {
     shared_libs: ["libparameter"],
     srcs: ["upstream/tools/xmlGenerator/domainGeneratorConnector.cpp"],
 }
+
+// Resources are not compiled so the prebuild mechanism is used to export them.
+// Schemas are only used by host, in order to validate xml files
+//////////////////////////////////////////////////
+
+prebuilt_etc_host {
+    name: "ParameterFrameworkConfiguration.xsd",
+    owner: "intel",
+    src: "upstream/schemas/ParameterFrameworkConfiguration.xsd",
+    sub_dir: "parameter-framework/Schemas",
+}
+
+prebuilt_etc_host {
+    name: "ConfigurableDomain.xsd",
+    owner: "intel",
+    src: "upstream/schemas/ConfigurableDomain.xsd",
+    sub_dir: "parameter-framework/Schemas",
+    required: ["ParameterSettings.xsd"],
+}
+
+prebuilt_etc_host {
+    name: "ConfigurableDomains.xsd",
+    owner: "intel",
+    src: "upstream/schemas/ConfigurableDomains.xsd",
+    sub_dir: "parameter-framework/Schemas",
+    required: ["ConfigurableDomain.xsd"],
+}
+
+prebuilt_etc_host {
+    name: "SystemClass.xsd",
+    owner: "intel",
+    src: "upstream/schemas/SystemClass.xsd",
+    sub_dir: "parameter-framework/Schemas",
+    required: [
+        "FileIncluder.xsd",
+        "Subsystem.xsd",
+    ],
+}
+
+prebuilt_etc_host {
+    name: "ParameterSettings.xsd",
+    owner: "intel",
+    src: "upstream/schemas/ParameterSettings.xsd",
+    sub_dir: "parameter-framework/Schemas",
+}
+
+prebuilt_etc_host {
+    name: "FileIncluder.xsd",
+    owner: "intel",
+    src: "upstream/schemas/FileIncluder.xsd",
+    sub_dir: "parameter-framework/Schemas",
+}
+
+prebuilt_etc_host {
+    name: "Subsystem.xsd",
+    owner: "intel",
+    src: "upstream/schemas/Subsystem.xsd",
+    sub_dir: "parameter-framework/Schemas",
+    required: ["ComponentLibrary.xsd"],
+}
+
+prebuilt_etc_host {
+    name: "ComponentLibrary.xsd",
+    owner: "intel",
+    src: "upstream/schemas/ComponentLibrary.xsd",
+    sub_dir: "parameter-framework/Schemas",
+    required: [
+        "ComponentTypeSet.xsd",
+        "W3cXmlAttributes.xsd",
+    ],
+}
+
+prebuilt_etc_host {
+    name: "ComponentTypeSet.xsd",
+    owner: "intel",
+    src: "upstream/schemas/ComponentTypeSet.xsd",
+    sub_dir: "parameter-framework/Schemas",
+    required: [
+        "Parameter.xsd",
+        "W3cXmlAttributes.xsd",
+    ],
+}
+
+prebuilt_etc_host {
+    name: "W3cXmlAttributes.xsd",
+    owner: "intel",
+    src: "upstream/schemas/W3cXmlAttributes.xsd",
+    sub_dir: "parameter-framework/Schemas",
+}
+
+prebuilt_etc_host {
+    name: "Parameter.xsd",
+    owner: "intel",
+    src: "upstream/schemas/Parameter.xsd",
+    sub_dir: "parameter-framework/Schemas",
+}
+
+//////////////////////////////////////////////////
