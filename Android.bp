@@ -55,12 +55,11 @@ cc_library_static {
     ],
 }
 
-cc_library_shared {
-    name: "libremote-processor",
+cc_defaults {
+    name: "libremote-processor-defaults",
     defaults: ["pfw_defaults"],
 
     cflags: ["-Wno-implicit-fallthrough"],
-    local_include_dirs: ["upstream/asio/stub"],
     export_include_dirs: [
         "upstream/remote-processor",
         "support/android/remote-processor",
@@ -77,7 +76,18 @@ cc_library_shared {
 }
 
 cc_library_shared {
-    name: "libparameter",
+    name: "libremote-processor",
+    defaults: ["libremote-processor-defaults"],
+
+    local_include_dirs: [
+        "asio/include",
+        "support/android/asio",
+    ],
+    cflags: ["-Wno-unused-local-typedef"],
+}
+
+cc_defaults {
+    name: "libparameter-defaults",
     defaults: ["pfw_defaults"],
 
     cppflags: [
@@ -93,7 +103,6 @@ cc_library_shared {
         "support/android/parameter",
     ],
     shared_libs: [
-        "libremote-processor",
         "libandroidicu",
     ],
     static_libs: [
@@ -185,19 +194,31 @@ cc_library_shared {
     ],
 }
 
+cc_library_shared {
+    name: "libparameter",
+    defaults: ["libparameter-defaults"],
+    shared_libs: [
+        "libremote-processor",
+    ],
+}
+
+// Userdebug only, should not be used in a user build device image.
 cc_binary {
     name: "test-platform",
     defaults: ["pfw_defaults"],
 
-    cflags: ["-Wno-implicit-fallthrough"],
     local_include_dirs: [
         "upstream/test/test-platform",
-        "upstream/asio/stub",
+        "support/android/asio",
+        "asio/include",
     ],
-
     srcs: [
         "upstream/test/test-platform/main.cpp",
         "upstream/test/test-platform/TestPlatform.cpp",
+    ],
+    cflags: [
+        "-Wno-unused-local-typedef",
+        "-Wno-implicit-fallthrough"
     ],
     static_libs: ["libpfw_utility"],
     shared_libs: [
@@ -457,3 +478,17 @@ cc_prebuilt_binary {
 }
 
 //////////////////////////////////////////////////
+
+cc_binary {
+    name: "remote-process",
+    defaults: ["pfw_defaults"],
+
+    srcs: ["upstream/remote-process/main.cpp"],
+    local_include_dirs: [
+        "upstream/utility",
+        "support/android/asio",
+        "asio/include",
+    ],
+    cflags: ["-Wno-unused-local-typedef"],
+    shared_libs: ["libremote-processor"],
+}
