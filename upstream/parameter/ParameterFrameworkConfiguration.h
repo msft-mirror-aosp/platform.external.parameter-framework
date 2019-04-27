@@ -43,7 +43,7 @@ public:
     bool isTuningAllowed() const;
 
     // Server port
-    uint16_t getServerPort() const;
+    const std::string &getServerBindAddress() const;
 
     // From IXmlSink
     bool fromXml(const CXmlElement &xmlElement,
@@ -58,5 +58,5 @@ private:
     // Tuning allowed
     bool _bTuningAllowed{false};
     // Server port
-    uint16_t _uiServerPort{0};
+    std::string _bindAddress;
 };

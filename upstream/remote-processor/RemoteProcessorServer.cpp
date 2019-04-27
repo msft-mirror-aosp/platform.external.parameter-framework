@@ -36,11 +36,12 @@
 #include "AnswerMessage.h"
 #include "RemoteCommandHandler.h"
 #include "Socket.h"
+#include "convert.hpp"
 
 using std::string;
 
-CRemoteProcessorServer::CRemoteProcessorServer(uint16_t uiPort)
-    : _uiPort(uiPort), _io_service(), _acceptor(_io_service), _socket(_io_service)
+CRemoteProcessorServer::CRemoteProcessorServer(std::string bindAddress)
+    : _bindAddress(bindAddress), _io_service(), _acceptor(_io_service), _socket(_io_service)
 {
 }
 
@@ -55,7 +56,12 @@ bool CRemoteProcessorServer::start(string &error)
     using namespace asio;
 
     try {
-        ip::tcp::endpoint endpoint(ip::tcp::v6(), _uiPort);
+        uint16_t port;
+
+        if (!convertTo(_bindAddress, port)) {
+            throw std::invalid_argument("unable to convert bind Address: " + _bindAddress);
+        }
+        ip::tcp::endpoint endpoint(ip::tcp::v6(), port);
 
         _acceptor.open(endpoint.protocol());
 
@@ -66,7 +72,7 @@ bool CRemoteProcessorServer::start(string &error)
         _acceptor.bind(endpoint);
         _acceptor.listen();
     } catch (std::exception &e) {
-        error = "Unable to listen on port " + std::to_string(_uiPort) + ": " + e.what();
+        error = "Unable to listen on port " + _bindAddress + ": " + e.what();
         return false;
     }
 
