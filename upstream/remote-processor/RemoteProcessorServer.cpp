@@ -32,6 +32,7 @@
 #include <memory>
 #include <assert.h>
 #include <string.h>
+#include <unistd.h>
 #include "RequestMessage.h"
 #include "AnswerMessage.h"
 #include "RemoteCommandHandler.h"
@@ -58,17 +59,61 @@ bool CRemoteProcessorServer::start(string &error)
     try {
         generic::stream_protocol::endpoint endpoint;
         uint16_t port;
+        std::string endpointName;
+        bool isInet;
 
+        // For backward compatibility, tcp port referred by its value only
         if (convertTo(_bindAddress, port)) {
+            isInet = true;
+        } else {
+            // required form is <protocol>://<host:port|port_name>
+            const std::string tcpProtocol{"tcp"};
+            const std::string unixProtocol{"unix"};
+            const std::vector<std::string> supportedProtocols{ tcpProtocol, unixProtocol };
+            const std::string protocolDel{"://"};
+
+            size_t protocolDelPos = _bindAddress.find(protocolDel);
+            if (protocolDelPos == std::string::npos) {
+                error = "bindaddress " + _bindAddress + " ill formed, missing " + protocolDel;
+                return false;
+            }
+            std::string protocol = _bindAddress.substr(0, protocolDelPos);
+
+            if (std::find(begin(supportedProtocols), end(supportedProtocols), protocol) ==
+                    end(supportedProtocols)) {
+                error = "bindaddress " + _bindAddress + " has invalid protocol " + protocol;
+                return false;
+            }
+            isInet = (_bindAddress.find(tcpProtocol) != std::string::npos);
+            if (isInet) {
+                size_t portDelPos = _bindAddress.find(':', protocolDelPos + protocolDel.size());
+                if (portDelPos == std::string::npos) {
+                    error = "bindaddress " + _bindAddress + " ill formed, missing " + ":";
+                    return false;
+                }
+                std::string portLiteral{_bindAddress.substr(portDelPos + 1)};
+                if (!convertTo(portLiteral, port)) {
+                    error = "bindaddress " + _bindAddress + " port " + portLiteral + " ill formed";
+                    return false;
+                }
+            } else {
+                endpointName = _bindAddress.substr(protocolDelPos + protocolDel.size());
+            }
+        }
+
+        if (isInet) {
             endpoint = ip::tcp::endpoint(ip::tcp::v6(), port);
         } else {
-            throw std::invalid_argument("unable to convert bind Address: " + _bindAddress);
+            endpoint = local::stream_protocol::endpoint(endpointName);
         }
 
         _acceptor.open(endpoint.protocol());
 
         if (endpoint.protocol().protocol() == ASIO_OS_DEF(IPPROTO_TCP)) {
             _acceptor.set_option(ip::tcp::acceptor::reuse_address(true));
+        } else if (endpoint.protocol().protocol() == AF_UNSPEC) {
+            // In case of reuse, remote it first
+            unlink(endpointName.c_str());
         }
         _acceptor.set_option(socket_base::linger(true, 0));
         _acceptor.set_option(socket_base::enable_connection_aborted(true));
