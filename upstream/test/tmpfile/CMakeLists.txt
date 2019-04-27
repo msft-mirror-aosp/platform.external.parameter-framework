@@ -34,4 +34,9 @@ if(BUILD_TESTING)
     endif ()
 
     add_library(tmpfile STATIC ${OS_SPECIFIC_TMPFILE})
+
+    if (NOT WIN32)
+        target_compile_definitions(tmpfile PUBLIC -D RW_PATH=\"\")
+    endif ()
+
 endif()
