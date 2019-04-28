@@ -40,7 +40,7 @@ class REMOTE_PROCESSOR_EXPORT BackgroundRemoteProcessorServer final
     : public IRemoteProcessorServerInterface
 {
 public:
-    BackgroundRemoteProcessorServer(uint16_t uiPort,
+    BackgroundRemoteProcessorServer(std::string bindAddress,
                                     std::unique_ptr<IRemoteCommandHandler> &&commandHandler);
 
     ~BackgroundRemoteProcessorServer() override;
