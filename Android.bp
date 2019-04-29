@@ -103,11 +103,10 @@ cc_defaults {
         "support/android/parameter",
     ],
     shared_libs: [
-        "libandroidicu",
+        "libxml2",
     ],
     static_libs: [
         "libpfw_utility",
-        "libxml2",
     ],
 
     srcs: [
