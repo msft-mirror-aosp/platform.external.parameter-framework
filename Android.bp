@@ -29,12 +29,14 @@
 cc_defaults {
     name: "pfw_defaults",
     host_supported: true,
+    vendor_available: true,
 
     cflags: [
         "-frtti",
         "-fexceptions",
         "-Wall",
         "-Werror",
+        "-Wextra",
     ],
     rtti: true,
 }
@@ -43,6 +45,7 @@ cc_library_static {
     name: "libpfw_utility",
     defaults: ["pfw_defaults"],
     host_supported: true,
+    vendor_available: true,
 
     export_include_dirs: ["upstream/utility"],
 
@@ -54,12 +57,11 @@ cc_library_static {
     ],
 }
 
-cc_library_shared {
-    name: "libremote-processor",
+cc_defaults {
+    name: "libremote-processor-defaults",
     defaults: ["pfw_defaults"],
 
     cflags: ["-Wno-implicit-fallthrough"],
-    local_include_dirs: ["upstream/asio/stub"],
     export_include_dirs: [
         "upstream/remote-processor",
         "support/android/remote-processor",
@@ -76,8 +78,20 @@ cc_library_shared {
 }
 
 cc_library_shared {
-    name: "libparameter",
+    name: "libremote-processor",
+    defaults: ["libremote-processor-defaults"],
+
+    local_include_dirs: [
+        "asio/include",
+        "support/android/asio",
+    ],
+    cflags: ["-Wno-unused-local-typedef"],
+}
+
+cc_defaults {
+    name: "libparameter-defaults",
     defaults: ["pfw_defaults"],
+    vendor_available: true,
 
     cppflags: [
         "-Wno-instantiation-after-specialization",
@@ -92,11 +106,10 @@ cc_library_shared {
         "support/android/parameter",
     ],
     shared_libs: [
-        "libremote-processor",
+        "libxml2",
     ],
     static_libs: [
         "libpfw_utility",
-        "libxml2",
     ],
 
     srcs: [
@@ -165,7 +178,7 @@ cc_library_shared {
         "upstream/parameter/ParameterMgr.cpp",
         "upstream/parameter/SelectionCriterionType.cpp",
         "upstream/parameter/Subsystem.cpp",
-        "upstream/parameter/IntegerParameterType.cpp",
+        "upstream/parameter/BaseIntegerParameterType.cpp",
         "upstream/parameter/BitParameterType.cpp",
         "upstream/parameter/SelectionCriterion.cpp",
         "upstream/parameter/XmlElementSerializingContext.cpp",
@@ -181,32 +194,33 @@ cc_library_shared {
         "upstream/xmlserializer/XmlStreamDocSink.cpp",
         "upstream/parameter/CommandHandlerWrapper.cpp",
     ],
-    target: {
-        android: {
-            shared_libs: ["libandroidicu"],
-        },
-        host: {
-            shared_libs: [
-                "libicui18n",
-                "libicuuc",
-            ],
-        },
-    },
 }
 
+cc_library_shared {
+    name: "libparameter",
+    defaults: ["libparameter-defaults"],
+    shared_libs: [
+        "libremote-processor",
+    ],
+}
+
+// Userdebug only, should not be used in a user build device image.
 cc_binary {
     name: "test-platform",
     defaults: ["pfw_defaults"],
 
-    cflags: ["-Wno-implicit-fallthrough"],
     local_include_dirs: [
         "upstream/test/test-platform",
-        "upstream/asio/stub",
+        "support/android/asio",
+        "asio/include",
     ],
-
     srcs: [
         "upstream/test/test-platform/main.cpp",
         "upstream/test/test-platform/TestPlatform.cpp",
+    ],
+    cflags: [
+        "-Wno-unused-local-typedef",
+        "-Wno-implicit-fallthrough"
     ],
     static_libs: ["libpfw_utility"],
     shared_libs: [
@@ -321,4 +335,162 @@ prebuilt_etc_host {
     sub_dir: "parameter-framework/Schemas",
 }
 
+filegroup {
+    name: "EddParser.py-srcs",
+    srcs: ["upstream/tools/xmlGenerator/EddParser.py"],
+    path: "upstream/tools/xmlGenerator/",
+}
+
+python_library_host {
+    name: "EddParser.py",
+    defaults: ["pfw_defaults"],
+    owner: "intel",
+
+    srcs: [":EddParser.py-srcs"],
+    version: {
+        py2: {
+            enabled: true,
+        },
+        py3: {
+            enabled: false,
+        },
+    },
+}
+
+filegroup {
+    name: "PfwBaseTranslator.py-srcs",
+    srcs: ["upstream/tools/xmlGenerator/PfwBaseTranslator.py"],
+    path: "upstream/tools/xmlGenerator/",
+}
+
+python_library_host {
+    name: "PfwBaseTranslator.py",
+    defaults: ["pfw_defaults"],
+    owner: "intel",
+
+    srcs: [":PfwBaseTranslator.py-srcs"],
+    version: {
+        py2: {
+            enabled: true,
+        },
+        py3: {
+            enabled: false,
+        },
+    },
+}
+
+filegroup {
+    name: "PFWScriptGenerator.py-srcs",
+    srcs: ["upstream/tools/xmlGenerator/PFWScriptGenerator.py"],
+    path: "upstream/tools/xmlGenerator/",
+}
+
+python_library_host {
+    name: "PFWScriptGenerator.py",
+    defaults: ["pfw_defaults"],
+    owner: "intel",
+
+    srcs: [":PFWScriptGenerator.py-srcs"],
+    libs: [
+        "PfwBaseTranslator.py",
+        "EddParser.py",
+    ],
+    version: {
+        py2: {
+            enabled: true,
+        },
+        py3: {
+            enabled: false,
+        },
+    },
+}
+
+cc_prebuilt_binary {
+    name: "updateRoutageDomains.sh",
+    defaults: ["pfw_defaults"],
+    owner: "intel",
+
+    host_supported: true,
+    srcs: ["upstream/tools/xmlGenerator/updateRoutageDomains.sh"],
+}
+
+filegroup {
+    name: "hostConfig.py-srcs",
+    srcs: ["upstream/tools/xmlGenerator/hostConfig.py"],
+    path: "upstream/tools/xmlGenerator/",
+}
+
+python_library_host {
+    name: "hostConfig.py",
+    defaults: ["pfw_defaults"],
+    owner: "intel",
+
+    srcs: [":hostConfig.py-srcs"],
+    version: {
+        py2: {
+            enabled: true,
+        },
+        py3: {
+            enabled: false,
+        },
+    },
+}
+
+python_binary_host {
+    name: "domainGenerator.py",
+    defaults: ["pfw_defaults"],
+    owner: "intel",
+
+    main: "upstream/tools/xmlGenerator/domainGenerator.py",
+    srcs: ["upstream/tools/xmlGenerator/domainGenerator.py"],
+    libs: [
+        "EddParser.py",
+        "hostConfig.py",
+        "PFWScriptGenerator.py",
+    ],
+    version: {
+        py2: {
+            enabled: true,
+        },
+        py3: {
+            enabled: false,
+        },
+    },
+    required: [
+        "domainGeneratorConnector",
+    ],
+}
+
+cc_prebuilt_binary {
+    name: "domainGenerator.sh",
+    defaults: ["pfw_defaults"],
+    owner: "intel",
+
+    host_supported: true,
+    srcs: ["upstream/tools/xmlGenerator/domainGenerator.sh"],
+}
+
+cc_prebuilt_binary {
+    name: "lightRoutingUpdate.sh",
+    defaults: ["pfw_defaults"],
+    owner: "intel",
+
+    host_supported: true,
+    srcs: ["upstream/tools/xmlGenerator/lightRoutingUpdate.sh"],
+}
+
 //////////////////////////////////////////////////
+
+cc_binary {
+    name: "remote-process",
+    defaults: ["pfw_defaults"],
+
+    srcs: ["upstream/remote-process/main.cpp"],
+    local_include_dirs: [
+        "upstream/utility",
+        "support/android/asio",
+        "asio/include",
+    ],
+    cflags: ["-Wno-unused-local-typedef"],
+    shared_libs: ["libremote-processor"],
+}

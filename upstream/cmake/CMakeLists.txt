@@ -26,6 +26,27 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-LOCAL_PATH := $(call my-dir)
+configure_file(ParameterFrameworkConfig.cmake
+    "${CMAKE_CURRENT_BINARY_DIR}/ParameterFrameworkConfig.cmake"
+    COPYONLY
+)
 
-include $(LOCAL_PATH)/XmlGenerator.mk
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/ParameterFrameworkConfigVersion.cmake"
+    VERSION ${PF_VERSION_MAJOR}.${PF_VERSION_MINOR}.${PF_VERSION_PATCH}
+    COMPATIBILITY SameMajorVersion)
+
+export(EXPORT ParameterTargets 
+    FILE "${CMAKE_CURRENT_BINARY_DIR}/ParameterFrameworkTargets.cmake"
+    NAMESPACE ParameterFramework::)
+
+install(EXPORT ParameterTargets DESTINATION lib/cmake/ParameterFramework
+    FILE ParameterFrameworkTargets.cmake
+    NAMESPACE ParameterFramework::
+    COMPONENT dev)
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/ParameterFrameworkConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/ParameterFrameworkConfigVersion.cmake"
+    DESTINATION lib/cmake/ParameterFramework
+    COMPONENT dev)
