@@ -93,7 +93,6 @@ cc_library_shared {
     ],
     shared_libs: [
         "libremote-processor",
-        "libandroidicu",
     ],
     static_libs: [
         "libpfw_utility",
@@ -182,6 +181,17 @@ cc_library_shared {
         "upstream/xmlserializer/XmlStreamDocSink.cpp",
         "upstream/parameter/CommandHandlerWrapper.cpp",
     ],
+    target: {
+        android: {
+            shared_libs: ["libandroidicu"],
+        },
+        host: {
+            shared_libs: [
+                "libicui18n",
+                "libicuuc",
+            ],
+        },
+    },
 }
 
 cc_binary {
