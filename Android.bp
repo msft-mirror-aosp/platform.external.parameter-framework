@@ -336,10 +336,10 @@ python_library_host {
     srcs: [":EddParser.py-srcs"],
     version: {
         py2: {
-            enabled: true,
+            enabled: false,
         },
         py3: {
-            enabled: false,
+            enabled: true,
         },
     },
 }
@@ -358,10 +358,10 @@ python_library_host {
     srcs: [":PfwBaseTranslator.py-srcs"],
     version: {
         py2: {
-            enabled: true,
+            enabled: false,
         },
         py3: {
-            enabled: false,
+            enabled: true,
         },
     },
 }
@@ -384,10 +384,10 @@ python_library_host {
     ],
     version: {
         py2: {
-            enabled: true,
+            enabled: false,
         },
         py3: {
-            enabled: false,
+            enabled: true,
         },
     },
 }
@@ -414,10 +414,10 @@ python_library_host {
     srcs: [":hostConfig.py-srcs"],
     version: {
         py2: {
-            enabled: true,
+            enabled: false,
         },
         py3: {
-            enabled: false,
+            enabled: true,
         },
     },
 }
@@ -436,10 +436,10 @@ python_binary_host {
     ],
     version: {
         py2: {
-            enabled: true,
+            enabled: false,
         },
         py3: {
-            enabled: false,
+            enabled: true,
         },
     },
     required: [
