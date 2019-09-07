@@ -405,13 +405,12 @@ python_library_host {
     },
 }
 
-cc_prebuilt_binary {
+sh_binary {
     name: "updateRoutageDomains.sh",
-    defaults: ["pfw_defaults"],
     owner: "intel",
 
     host_supported: true,
-    srcs: ["upstream/tools/xmlGenerator/updateRoutageDomains.sh"],
+    src: "upstream/tools/xmlGenerator/updateRoutageDomains.sh",
 }
 
 filegroup {
