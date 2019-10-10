@@ -57,16 +57,17 @@ cc_library_static {
     ],
 }
 
-cc_defaults {
-    name: "libremote-processor-defaults",
+cc_library_shared {
+    name: "libremote-processor",
     defaults: ["pfw_defaults"],
-
-    cflags: ["-Wno-implicit-fallthrough"],
     export_include_dirs: [
         "upstream/remote-processor",
         "support/android/remote-processor",
     ],
-
+    local_include_dirs: [
+        "asio/include",
+        "support/android/asio",
+    ],
     srcs: [
         "upstream/remote-processor/RequestMessage.cpp",
         "upstream/remote-processor/Message.cpp",
@@ -74,22 +75,15 @@ cc_defaults {
         "upstream/remote-processor/RemoteProcessorServer.cpp",
         "upstream/remote-processor/BackgroundRemoteProcessorServer.cpp",
     ],
+    cflags: [
+        "-Wno-unused-local-typedef",
+        "-Wno-implicit-fallthrough"
+    ],
     static_libs: ["libpfw_utility"],
 }
 
 cc_library_shared {
-    name: "libremote-processor",
-    defaults: ["libremote-processor-defaults"],
-
-    local_include_dirs: [
-        "asio/include",
-        "support/android/asio",
-    ],
-    cflags: ["-Wno-unused-local-typedef"],
-}
-
-cc_defaults {
-    name: "libparameter-defaults",
+    name: "libparameter",
     defaults: ["pfw_defaults"],
     vendor_available: true,
 
@@ -107,6 +101,7 @@ cc_defaults {
     ],
     shared_libs: [
         "libxml2",
+        "libremote-processor",
     ],
     static_libs: [
         "libpfw_utility",
@@ -193,14 +188,6 @@ cc_defaults {
         "upstream/xmlserializer/XmlMemoryDocSink.cpp",
         "upstream/xmlserializer/XmlStreamDocSink.cpp",
         "upstream/parameter/CommandHandlerWrapper.cpp",
-    ],
-}
-
-cc_library_shared {
-    name: "libparameter",
-    defaults: ["libparameter-defaults"],
-    shared_libs: [
-        "libremote-processor",
     ],
 }
 
