@@ -29,6 +29,7 @@
 cc_defaults {
     name: "pfw_defaults",
     host_supported: true,
+    vendor_available: true,
 
     cflags: [
         "-frtti",
@@ -44,6 +45,7 @@ cc_library_static {
     name: "libpfw_utility",
     defaults: ["pfw_defaults"],
     host_supported: true,
+    vendor_available: true,
 
     export_include_dirs: ["upstream/utility"],
 
@@ -58,14 +60,14 @@ cc_library_static {
 cc_library_shared {
     name: "libremote-processor",
     defaults: ["pfw_defaults"],
-
-    cflags: ["-Wno-implicit-fallthrough"],
-    local_include_dirs: ["upstream/asio/stub"],
     export_include_dirs: [
         "upstream/remote-processor",
         "support/android/remote-processor",
     ],
-
+    local_include_dirs: [
+        "asio/include",
+        "support/android/asio",
+    ],
     srcs: [
         "upstream/remote-processor/RequestMessage.cpp",
         "upstream/remote-processor/Message.cpp",
@@ -73,12 +75,17 @@ cc_library_shared {
         "upstream/remote-processor/RemoteProcessorServer.cpp",
         "upstream/remote-processor/BackgroundRemoteProcessorServer.cpp",
     ],
+    cflags: [
+        "-Wno-unused-local-typedef",
+        "-Wno-implicit-fallthrough"
+    ],
     static_libs: ["libpfw_utility"],
 }
 
 cc_library_shared {
     name: "libparameter",
     defaults: ["pfw_defaults"],
+    vendor_available: true,
 
     cppflags: [
         "-Wno-instantiation-after-specialization",
@@ -93,11 +100,11 @@ cc_library_shared {
         "support/android/parameter",
     ],
     shared_libs: [
+        "libxml2",
         "libremote-processor",
     ],
     static_libs: [
         "libpfw_utility",
-        "libxml2",
     ],
 
     srcs: [
@@ -166,7 +173,7 @@ cc_library_shared {
         "upstream/parameter/ParameterMgr.cpp",
         "upstream/parameter/SelectionCriterionType.cpp",
         "upstream/parameter/Subsystem.cpp",
-        "upstream/parameter/IntegerParameterType.cpp",
+        "upstream/parameter/BaseIntegerParameterType.cpp",
         "upstream/parameter/BitParameterType.cpp",
         "upstream/parameter/SelectionCriterion.cpp",
         "upstream/parameter/XmlElementSerializingContext.cpp",
@@ -182,32 +189,25 @@ cc_library_shared {
         "upstream/xmlserializer/XmlStreamDocSink.cpp",
         "upstream/parameter/CommandHandlerWrapper.cpp",
     ],
-    target: {
-        android: {
-            shared_libs: ["libandroidicu"],
-        },
-        host: {
-            shared_libs: [
-                "libicui18n",
-                "libicuuc",
-            ],
-        },
-    },
 }
 
+// Userdebug only, should not be used in a user build device image.
 cc_binary {
     name: "test-platform",
     defaults: ["pfw_defaults"],
 
-    cflags: ["-Wno-implicit-fallthrough"],
     local_include_dirs: [
         "upstream/test/test-platform",
-        "upstream/asio/stub",
+        "support/android/asio",
+        "asio/include",
     ],
-
     srcs: [
         "upstream/test/test-platform/main.cpp",
         "upstream/test/test-platform/TestPlatform.cpp",
+    ],
+    cflags: [
+        "-Wno-unused-local-typedef",
+        "-Wno-implicit-fallthrough"
     ],
     static_libs: ["libpfw_utility"],
     shared_libs: [
@@ -336,10 +336,10 @@ python_library_host {
     srcs: [":EddParser.py-srcs"],
     version: {
         py2: {
-            enabled: true,
+            enabled: false,
         },
         py3: {
-            enabled: false,
+            enabled: true,
         },
     },
 }
@@ -358,10 +358,10 @@ python_library_host {
     srcs: [":PfwBaseTranslator.py-srcs"],
     version: {
         py2: {
-            enabled: true,
+            enabled: false,
         },
         py3: {
-            enabled: false,
+            enabled: true,
         },
     },
 }
@@ -384,21 +384,20 @@ python_library_host {
     ],
     version: {
         py2: {
-            enabled: true,
+            enabled: false,
         },
         py3: {
-            enabled: false,
+            enabled: true,
         },
     },
 }
 
-cc_prebuilt_binary {
+sh_binary {
     name: "updateRoutageDomains.sh",
-    defaults: ["pfw_defaults"],
     owner: "intel",
 
     host_supported: true,
-    srcs: ["upstream/tools/xmlGenerator/updateRoutageDomains.sh"],
+    src: "upstream/tools/xmlGenerator/updateRoutageDomains.sh",
 }
 
 filegroup {
@@ -415,10 +414,10 @@ python_library_host {
     srcs: [":hostConfig.py-srcs"],
     version: {
         py2: {
-            enabled: true,
+            enabled: false,
         },
         py3: {
-            enabled: false,
+            enabled: true,
         },
     },
 }
@@ -437,10 +436,10 @@ python_binary_host {
     ],
     version: {
         py2: {
-            enabled: true,
+            enabled: false,
         },
         py3: {
-            enabled: false,
+            enabled: true,
         },
     },
     required: [
@@ -467,3 +466,17 @@ cc_prebuilt_binary {
 }
 
 //////////////////////////////////////////////////
+
+cc_binary {
+    name: "remote-process",
+    defaults: ["pfw_defaults"],
+
+    srcs: ["upstream/remote-process/main.cpp"],
+    local_include_dirs: [
+        "upstream/utility",
+        "support/android/asio",
+        "asio/include",
+    ],
+    cflags: ["-Wno-unused-local-typedef"],
+    shared_libs: ["libremote-processor"],
+}
