@@ -57,7 +57,7 @@ cc_library_static {
     ],
 }
 
-cc_library_shared {
+cc_library {
     name: "libremote-processor",
     defaults: ["pfw_defaults"],
     export_include_dirs: [
@@ -82,7 +82,7 @@ cc_library_shared {
     static_libs: ["libpfw_utility"],
 }
 
-cc_library_shared {
+cc_library {
     name: "libparameter",
     defaults: ["pfw_defaults"],
     vendor_available: true,
@@ -227,8 +227,25 @@ cc_binary_host {
 }
 
 // Resources are not compiled so the prebuild mechanism is used to export them.
-// Schemas are only used by host, in order to validate xml files
 //////////////////////////////////////////////////
+
+filegroup {
+    name: "parameter_frameworks_configuration_schemas",
+    srcs: [
+        "upstream/schemas/ParameterFrameworkConfiguration.xsd",
+        "upstream/schemas/ConfigurableDomain.xsd",
+        "upstream/schemas/ConfigurableDomains.xsd",
+        "upstream/schemas/SystemClass.xsd",
+        "upstream/schemas/ParameterSettings.xsd",
+        "upstream/schemas/FileIncluder.xsd",
+        "upstream/schemas/Subsystem.xsd",
+        "upstream/schemas/ComponentLibrary.xsd",
+        "upstream/schemas/ComponentTypeSet.xsd",
+        "upstream/schemas/W3cXmlAttributes.xsd",
+        "upstream/schemas/Parameter.xsd",
+    ],
+    path: "upstream/",
+}
 
 prebuilt_etc_host {
     name: "ParameterFrameworkConfiguration.xsd",
