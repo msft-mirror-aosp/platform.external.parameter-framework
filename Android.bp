@@ -57,17 +57,16 @@ cc_library_static {
     ],
 }
 
-cc_library_shared {
-    name: "libremote-processor",
+cc_defaults {
+    name: "libremote-processor-defaults",
     defaults: ["pfw_defaults"],
+
+    cflags: ["-Wno-implicit-fallthrough"],
     export_include_dirs: [
         "upstream/remote-processor",
         "support/android/remote-processor",
     ],
-    local_include_dirs: [
-        "asio/include",
-        "support/android/asio",
-    ],
+
     srcs: [
         "upstream/remote-processor/RequestMessage.cpp",
         "upstream/remote-processor/Message.cpp",
@@ -75,15 +74,22 @@ cc_library_shared {
         "upstream/remote-processor/RemoteProcessorServer.cpp",
         "upstream/remote-processor/BackgroundRemoteProcessorServer.cpp",
     ],
-    cflags: [
-        "-Wno-unused-local-typedef",
-        "-Wno-implicit-fallthrough"
-    ],
     static_libs: ["libpfw_utility"],
 }
 
 cc_library_shared {
-    name: "libparameter",
+    name: "libremote-processor",
+    defaults: ["libremote-processor-defaults"],
+
+    local_include_dirs: [
+        "asio/include",
+        "support/android/asio",
+    ],
+    cflags: ["-Wno-unused-local-typedef"],
+}
+
+cc_defaults {
+    name: "libparameter-defaults",
     defaults: ["pfw_defaults"],
     vendor_available: true,
 
@@ -101,7 +107,6 @@ cc_library_shared {
     ],
     shared_libs: [
         "libxml2",
-        "libremote-processor",
     ],
     static_libs: [
         "libpfw_utility",
@@ -188,6 +193,14 @@ cc_library_shared {
         "upstream/xmlserializer/XmlMemoryDocSink.cpp",
         "upstream/xmlserializer/XmlStreamDocSink.cpp",
         "upstream/parameter/CommandHandlerWrapper.cpp",
+    ],
+}
+
+cc_library_shared {
+    name: "libparameter",
+    defaults: ["libparameter-defaults"],
+    shared_libs: [
+        "libremote-processor",
     ],
 }
 
@@ -336,10 +349,10 @@ python_library_host {
     srcs: [":EddParser.py-srcs"],
     version: {
         py2: {
-            enabled: false,
+            enabled: true,
         },
         py3: {
-            enabled: true,
+            enabled: false,
         },
     },
 }
@@ -358,10 +371,10 @@ python_library_host {
     srcs: [":PfwBaseTranslator.py-srcs"],
     version: {
         py2: {
-            enabled: false,
+            enabled: true,
         },
         py3: {
-            enabled: true,
+            enabled: false,
         },
     },
 }
@@ -384,20 +397,21 @@ python_library_host {
     ],
     version: {
         py2: {
-            enabled: false,
+            enabled: true,
         },
         py3: {
-            enabled: true,
+            enabled: false,
         },
     },
 }
 
-sh_binary {
+cc_prebuilt_binary {
     name: "updateRoutageDomains.sh",
+    defaults: ["pfw_defaults"],
     owner: "intel",
 
     host_supported: true,
-    src: "upstream/tools/xmlGenerator/updateRoutageDomains.sh",
+    srcs: ["upstream/tools/xmlGenerator/updateRoutageDomains.sh"],
 }
 
 filegroup {
@@ -414,10 +428,10 @@ python_library_host {
     srcs: [":hostConfig.py-srcs"],
     version: {
         py2: {
-            enabled: false,
+            enabled: true,
         },
         py3: {
-            enabled: true,
+            enabled: false,
         },
     },
 }
@@ -436,10 +450,10 @@ python_binary_host {
     ],
     version: {
         py2: {
-            enabled: false,
+            enabled: true,
         },
         py3: {
-            enabled: true,
+            enabled: false,
         },
     },
     required: [

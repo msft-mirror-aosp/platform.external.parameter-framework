@@ -18,6 +18,6 @@ parameter-framework client.
 
 ## Syntax
 
-    remote-process <hostname port|tcp://[host]:port|unix://path> <command>
+    remote-process <host> <port> <command>
 
 You can get all available commands with the `help` command.
