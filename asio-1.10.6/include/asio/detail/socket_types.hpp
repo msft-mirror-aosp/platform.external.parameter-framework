@@ -15,7 +15,7 @@
 #include "asio/detail/config.hpp"
 
 # include <sys/ioctl.h>
-#  include <poll.h>
+#  include <sys/poll.h>
 # include <sys/types.h>
 # include <sys/stat.h>
 # include <fcntl.h>
