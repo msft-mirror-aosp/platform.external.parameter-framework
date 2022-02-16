@@ -60,7 +60,7 @@ void CSelectionCriterion::resetModifiedStatus()
 
 /// From ISelectionCriterionInterface
 // State
-void CSelectionCriterion::setCriterionState(uint64_t iState)
+void CSelectionCriterion::setCriterionState(int iState)
 {
     // Check for a change
     if (_iState != iState) {
@@ -85,7 +85,7 @@ void CSelectionCriterion::setCriterionState(uint64_t iState)
     }
 }
 
-uint64_t CSelectionCriterion::getCriterionState() const
+int CSelectionCriterion::getCriterionState() const
 {
     return _iState;
 }
@@ -103,24 +103,24 @@ const ISelectionCriterionTypeInterface *CSelectionCriterion::getCriterionType() 
 }
 
 /// Match methods
-bool CSelectionCriterion::is(uint64_t iState) const
+bool CSelectionCriterion::is(int iState) const
 {
     return _iState == iState;
 }
 
-bool CSelectionCriterion::isNot(uint64_t iState) const
+bool CSelectionCriterion::isNot(int iState) const
 {
     return _iState != iState;
 }
 
-bool CSelectionCriterion::includes(uint64_t iState) const
+bool CSelectionCriterion::includes(int iState) const
 {
     // For inclusive criterion, Includes checks if ALL the bit sets in iState are set in the
     // current _iState.
     return (_iState & iState) == iState;
 }
 
-bool CSelectionCriterion::excludes(uint64_t iState) const
+bool CSelectionCriterion::excludes(int iState) const
 {
     return (_iState & iState) == 0;
 }
