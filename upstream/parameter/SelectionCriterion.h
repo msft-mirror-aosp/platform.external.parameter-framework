@@ -47,8 +47,8 @@ public:
 
     /// From ISelectionCriterionInterface
     // State
-    void setCriterionState(uint64_t iState) override;
-    uint64_t getCriterionState() const override;
+    void setCriterionState(int iState) override;
+    int getCriterionState() const override;
     // Name
     std::string getCriterionName() const override;
     // Type
@@ -58,10 +58,10 @@ public:
     void resetModifiedStatus();
 
     /// Match methods
-    bool is(uint64_t iState) const;
-    bool isNot(uint64_t iState) const;
-    bool includes(uint64_t iState) const;
-    bool excludes(uint64_t iState) const;
+    bool is(int iState) const;
+    bool isNot(int iState) const;
+    bool includes(int iState) const;
+    bool excludes(int iState) const;
 
     /// User request
     std::string getFormattedDescription(bool bWithTypeInfo, bool bHumanReadable) const;
@@ -80,7 +80,7 @@ public:
 
 private:
     // Current state
-    uint64_t _iState{0};
+    int _iState{0};
     // Type
     const CSelectionCriterionType *_pType;
 
