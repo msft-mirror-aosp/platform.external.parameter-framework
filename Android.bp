@@ -501,22 +501,20 @@ python_binary_host {
     ],
 }
 
-cc_prebuilt_binary {
+sh_binary {
     name: "domainGenerator.sh",
-    defaults: ["pfw_defaults"],
     owner: "intel",
 
     host_supported: true,
-    srcs: ["upstream/tools/xmlGenerator/domainGenerator.sh"],
+    src: "upstream/tools/xmlGenerator/domainGenerator.sh",
 }
 
-cc_prebuilt_binary {
+sh_binary {
     name: "lightRoutingUpdate.sh",
-    defaults: ["pfw_defaults"],
     owner: "intel",
 
     host_supported: true,
-    srcs: ["upstream/tools/xmlGenerator/lightRoutingUpdate.sh"],
+    src: "upstream/tools/xmlGenerator/lightRoutingUpdate.sh",
 }
 
 //////////////////////////////////////////////////
