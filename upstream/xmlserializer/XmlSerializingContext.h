@@ -61,7 +61,7 @@ public:
       * @param[in] error the xml error output format
       *
       */
-    static void structuredErrorHandler(void *userData, _xmlError *error);
+    static void structuredErrorHandler(void *userData, const _xmlError *error);
 
 private:
     std::string _strXmlError;
