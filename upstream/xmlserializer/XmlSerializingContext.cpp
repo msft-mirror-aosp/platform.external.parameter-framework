@@ -55,7 +55,7 @@ void CXmlSerializingContext::appendLineToError(const std::string &strAppend)
   * @param[in] error the xml error
   *
   */
-void CXmlSerializingContext::structuredErrorHandler(void *userData, xmlErrorPtr error)
+void CXmlSerializingContext::structuredErrorHandler(void *userData, const xmlError *error)
 {
     CXmlSerializingContext *self = static_cast<CXmlSerializingContext *>(userData);
 
