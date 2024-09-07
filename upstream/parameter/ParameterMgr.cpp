@@ -928,13 +928,6 @@ CParameterMgr::CCommandHandler::CommandStatus CParameterMgr::statusCommandProces
 CParameterMgr::CCommandHandler::CommandStatus CParameterMgr::setTuningModeCommandProcess(
     const IRemoteCommand &remoteCommand, string &strResult)
 {
-    // Tuning allowed? Check done only when trying to access from python command bindings.
-    if (!getConstFrameworkConfiguration()->isTuningAllowed()) {
-
-        strResult = "Tuning prohibited";
-
-        return CCommandHandler::EFailed;
-    }
     if (remoteCommand.getArgument(0) == "on") {
 
         if (setTuningMode(true, strResult)) {
@@ -2120,6 +2113,13 @@ bool CParameterMgr::setTuningMode(bool bOn, string &strError)
 {
     if (bOn == tuningModeOn()) {
         strError = "Tuning mode is already in the state requested";
+        return false;
+    }
+    // Tuning allowed?
+    if (bOn && !getConstFrameworkConfiguration()->isTuningAllowed()) {
+
+        strError = "Tuning prohibited";
+
         return false;
     }
     // Lock state
